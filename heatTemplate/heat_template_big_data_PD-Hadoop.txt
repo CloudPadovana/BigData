@@ -130,9 +130,9 @@ resources:
            yum -y install http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-8.noarch.rpm
            yum -y install sshpass
            cd /opt
-           wget --no-cookies --no-check-certificate --header "Cookie: gpw_e24=http%3A%2F%2Fwww.oracle.com%2F; oraclelicense=accept-securebackup-cookie" "http://download.oracle.com/otn-pub/java/jdk/8u101-b13/jdk-8u101-linux-x64.tar.gz"
-           tar -zxf /opt/jdk-8u101-linux-x64.tar.gz
-           mv jdk1.8.0_101 jdk
+           wget --no-cookies --no-check-certificate --header "Cookie: gpw_e24=http%3A%2F%2Fwww.oracle.com%2F; oraclelicense=accept-securebackup-cookie" "http://download.oracle.com/otn-pub/java/jdk/8u161-b12/jdk-8u161-linux-x64.tar.gz"
+           tar -zxf /opt/jdk-8u161-linux-x64.tar.gz
+           mv jdk1.8.0_161 jdk
            alternatives --install /usr/bin/java java /opt/jdk/bin/java 2
            alternatives --install /usr/bin/jar jar /opt/jdk/bin/jar 2
            alternatives --install /usr/bin/javac javac /opt/jdk/bin/javac 2
@@ -329,9 +329,9 @@ resources:
            yum -y install http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-8.noarch.rpm
            yum -y install sshpass
            cd /opt
-           wget --no-cookies --no-check-certificate --header "Cookie: gpw_e24=http%3A%2F%2Fwww.oracle.com%2F; oraclelicense=accept-securebackup-cookie" "http://download.oracle.com/otn-pub/java/jdk/8u101-b13/jdk-8u101-linux-x64.tar.gz"
-           tar -zxf /opt/jdk-8u101-linux-x64.tar.gz
-           mv jdk1.8.0_101 jdk
+           wget --no-cookies --no-check-certificate --header "Cookie: gpw_e24=http%3A%2F%2Fwww.oracle.com%2F; oraclelicense=accept-securebackup-cookie" "http://download.oracle.com/otn-pub/java/jdk/8u161-b12/jdk-8u161-linux-x64.tar.gz"
+           tar -zxf /opt/jdk-8u161-linux-x64.tar.gz
+           mv jdk1.8.0_161 jdk
            alternatives --install /usr/bin/java java /opt/jdk/bin/java 2
            alternatives --install /usr/bin/jar jar /opt/jdk/bin/jar 2
            alternatives --install /usr/bin/javac javac /opt/jdk/bin/javac 2
@@ -487,9 +487,9 @@ resources:
            yum -y install http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-8.noarch.rpm
            yum -y install sshpass
            cd /opt
-           wget --no-cookies --no-check-certificate --header "Cookie: gpw_e24=http%3A%2F%2Fwww.oracle.com%2F; oraclelicense=accept-securebackup-cookie" "http://download.oracle.com/otn-pub/java/jdk/8u101-b13/jdk-8u101-linux-x64.tar.gz"
-           tar -zxf /opt/jdk-8u101-linux-x64.tar.gz
-           mv jdk1.8.0_101 jdk
+           wget --no-cookies --no-check-certificate --header "Cookie: gpw_e24=http%3A%2F%2Fwww.oracle.com%2F; oraclelicense=accept-securebackup-cookie" "http://download.oracle.com/otn-pub/java/jdk/8u161-b12/jdk-8u161-linux-x64.tar.gz"
+           tar -zxf /opt/jdk-8u161-linux-x64.tar.gz
+           mv jdk1.8.0_161 jdk
            alternatives --install /usr/bin/java java /opt/jdk/bin/java 2
            alternatives --install /usr/bin/jar jar /opt/jdk/bin/jar 2
            alternatives --install /usr/bin/javac javac /opt/jdk/bin/javac 2
@@ -632,9 +632,9 @@ resources:
            yum -y install http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-8.noarch.rpm
            yum -y install sshpass
            cd /opt
-           wget --no-cookies --no-check-certificate --header "Cookie: gpw_e24=http%3A%2F%2Fwww.oracle.com%2F; oraclelicense=accept-securebackup-cookie" "http://download.oracle.com/otn-pub/java/jdk/8u101-b13/jdk-8u101-linux-x64.tar.gz"
-           tar -zxf /opt/jdk-8u101-linux-x64.tar.gz
-           mv jdk1.8.0_101 jdk
+           wget --no-cookies --no-check-certificate --header "Cookie: gpw_e24=http%3A%2F%2Fwww.oracle.com%2F; oraclelicense=accept-securebackup-cookie" "http://download.oracle.com/otn-pub/java/jdk/8u161-b12/jdk-8u161-linux-x64.tar.gz"
+           tar -zxf /opt/jdk-8u161-linux-x64.tar.gz
+           mv jdk1.8.0_161 jdk
            alternatives --install /usr/bin/java java /opt/jdk/bin/java 2
            alternatives --install /usr/bin/jar jar /opt/jdk/bin/jar 2
            alternatives --install /usr/bin/javac javac /opt/jdk/bin/javac 2
@@ -777,9 +777,9 @@ resources:
            yum -y install http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-8.noarch.rpm
            yum -y install sshpass
            cd /opt
-           wget --no-cookies --no-check-certificate --header "Cookie: gpw_e24=http%3A%2F%2Fwww.oracle.com%2F; oraclelicense=accept-securebackup-cookie" "http://download.oracle.com/otn-pub/java/jdk/8u101-b13/jdk-8u101-linux-x64.tar.gz"
-           tar -zxf /opt/jdk-8u101-linux-x64.tar.gz
-           mv jdk1.8.0_101 jdk
+           wget --no-cookies --no-check-certificate --header "Cookie: gpw_e24=http%3A%2F%2Fwww.oracle.com%2F; oraclelicense=accept-securebackup-cookie" "http://download.oracle.com/otn-pub/java/jdk/8u161-b12/jdk-8u161-linux-x64.tar.gz"
+           tar -zxf /opt/jdk-8u161-linux-x64.tar.gz
+           mv jdk1.8.0_161 jdk
            alternatives --install /usr/bin/java java /opt/jdk/bin/java 2
            alternatives --install /usr/bin/jar jar /opt/jdk/bin/jar 2
            alternatives --install /usr/bin/javac javac /opt/jdk/bin/javac 2
@@ -922,9 +922,9 @@ resources:
            yum -y install http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-8.noarch.rpm
            yum -y install sshpass
            cd /opt
-           wget --no-cookies --no-check-certificate --header "Cookie: gpw_e24=http%3A%2F%2Fwww.oracle.com%2F; oraclelicense=accept-securebackup-cookie" "http://download.oracle.com/otn-pub/java/jdk/8u101-b13/jdk-8u101-linux-x64.tar.gz"
-           tar -zxf /opt/jdk-8u101-linux-x64.tar.gz
-           mv jdk1.8.0_101 jdk
+           wget --no-cookies --no-check-certificate --header "Cookie: gpw_e24=http%3A%2F%2Fwww.oracle.com%2F; oraclelicense=accept-securebackup-cookie" "http://download.oracle.com/otn-pub/java/jdk/8u161-b12/jdk-8u161-linux-x64.tar.gz"
+           tar -zxf /opt/jdk-8u161-linux-x64.tar.gz
+           mv jdk1.8.0_161 jdk
            alternatives --install /usr/bin/java java /opt/jdk/bin/java 2
            alternatives --install /usr/bin/jar jar /opt/jdk/bin/jar 2
            alternatives --install /usr/bin/javac javac /opt/jdk/bin/javac 2

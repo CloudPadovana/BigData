@@ -150,9 +150,9 @@ resources:
                    -d '{"Status" : "SUCCESS","Reason" : "Configuration OK","UniqueId" : "NODO1","Data" : "Nodo1 started Configured."}' \
                    "$wait_handle$"
            cd /opt
-           wget --no-cookies --no-check-certificate --header "Cookie: gpw_e24=http%3A%2F%2Fwww.oracle.com%2F; oraclelicense=accept-securebackup-cookie" "http://download.oracle.com/otn-pub/java/jdk/8u101-b13/jdk-8u101-linux-x64.tar.gz"
-           tar -zxf /opt/jdk-8u101-linux-x64.tar.gz
-           mv jdk1.8.0_101 jdk
+           wget --no-cookies --no-check-certificate --header "Cookie: gpw_e24=http%3A%2F%2Fwww.oracle.com%2F; oraclelicense=accept-securebackup-cookie" "http://download.oracle.com/otn-pub/java/jdk/8u161-b12/jdk-8u161-linux-x64.tar.gz"
+           tar -zxf /opt/jdk-8u161-linux-x64.tar.gz
+           mv jdk1.8.0_161 jdk
            alternatives --install /usr/bin/java java /opt/jdk/bin/java 2
            alternatives --install /usr/bin/jar jar /opt/jdk/bin/jar 2
            alternatives --install /usr/bin/javac javac /opt/jdk/bin/javac 2
@@ -390,9 +390,9 @@ resources:
            chown -R hadoop.hadoop /home1/hadoop/.ssh
            chmod 600 /home1/hadoop/.ssh/authorized_keys
            cd /opt
-           wget --no-cookies --no-check-certificate --header "Cookie: gpw_e24=http%3A%2F%2Fwww.oracle.com%2F; oraclelicense=accept-securebackup-cookie" "http://download.oracle.com/otn-pub/java/jdk/8u101-b13/jdk-8u101-linux-x64.tar.gz"
-           tar -zxf /opt/jdk-8u101-linux-x64.tar.gz
-           mv jdk1.8.0_101 jdk
+           wget --no-cookies --no-check-certificate --header "Cookie: gpw_e24=http%3A%2F%2Fwww.oracle.com%2F; oraclelicense=accept-securebackup-cookie" "http://download.oracle.com/otn-pub/java/jdk/8u161-b12/jdk-8u161-linux-x64.tar.gz"
+           tar -zxf /opt/jdk-8u161-linux-x64.tar.gz
+           mv jdk1.8.0_161 jdk
            alternatives --install /usr/bin/java java /opt/jdk/bin/java 2
            alternatives --install /usr/bin/jar jar /opt/jdk/bin/jar 2
            alternatives --install /usr/bin/javac javac /opt/jdk/bin/javac 2
@@ -565,9 +565,9 @@ resources:
            chown -R hadoop.hadoop /home1/hadoop/.ssh
            chmod 600 /home1/hadoop/.ssh/authorized_keys
            cd /opt 
-           wget --no-cookies --no-check-certificate --header "Cookie: gpw_e24=http%3A%2F%2Fwww.oracle.com%2F; oraclelicense=accept-securebackup-cookie" "http://download.oracle.com/otn-pub/java/jdk/8u101-b13/jdk-8u101-linux-x64.tar.gz"
-           tar -zxf /opt/jdk-8u101-linux-x64.tar.gz
-           mv jdk1.8.0_101 jdk
+           wget --no-cookies --no-check-certificate --header "Cookie: gpw_e24=http%3A%2F%2Fwww.oracle.com%2F; oraclelicense=accept-securebackup-cookie" "http://download.oracle.com/otn-pub/java/jdk/8u161-b12/jdk-8u161-linux-x64.tar.gz"
+           tar -zxf /opt/jdk-8u161-linux-x64.tar.gz
+           mv jdk1.8.0_161 jdk
            alternatives --install /usr/bin/java java /opt/jdk/bin/java 2
            alternatives --install /usr/bin/jar jar /opt/jdk/bin/jar 2
            alternatives --install /usr/bin/javac javac /opt/jdk/bin/javac 2
@@ -739,9 +739,9 @@ resources:
            chown -R hadoop.hadoop /home1/hadoop/.ssh
            chmod 600 /home1/hadoop/.ssh/authorized_keys
            cd /opt
-           wget --no-cookies --no-check-certificate --header "Cookie: gpw_e24=http%3A%2F%2Fwww.oracle.com%2F; oraclelicense=accept-securebackup-cookie" "http://download.oracle.com/otn-pub/java/jdk/8u101-b13/jdk-8u101-linux-x64.tar.gz"
-           tar -zxf /opt/jdk-8u101-linux-x64.tar.gz
-           mv jdk1.8.0_101 jdk
+           wget --no-cookies --no-check-certificate --header "Cookie: gpw_e24=http%3A%2F%2Fwww.oracle.com%2F; oraclelicense=accept-securebackup-cookie" "http://download.oracle.com/otn-pub/java/jdk/8u161-b12/jdk-8u161-linux-x64.tar.gz"
+           tar -zxf /opt/jdk-8u161-linux-x64.tar.gz
+           mv jdk1.8.0_161 jdk
            alternatives --install /usr/bin/java java /opt/jdk/bin/java 2
            alternatives --install /usr/bin/jar jar /opt/jdk/bin/jar 2
            alternatives --install /usr/bin/javac javac /opt/jdk/bin/javac 2
@@ -913,9 +913,9 @@ resources:
            chown -R hadoop.hadoop /home1/hadoop/.ssh
            chmod 600 /home1/hadoop/.ssh/authorized_keys
            cd /opt
-           wget --no-cookies --no-check-certificate --header "Cookie: gpw_e24=http%3A%2F%2Fwww.oracle.com%2F; oraclelicense=accept-securebackup-cookie" "http://download.oracle.com/otn-pub/java/jdk/8u101-b13/jdk-8u101-linux-x64.tar.gz"
-           tar -zxf /opt/jdk-8u101-linux-x64.tar.gz
-           mv jdk1.8.0_101 jdk
+           wget --no-cookies --no-check-certificate --header "Cookie: gpw_e24=http%3A%2F%2Fwww.oracle.com%2F; oraclelicense=accept-securebackup-cookie" "http://download.oracle.com/otn-pub/java/jdk/8u161-b12/jdk-8u161-linux-x64.tar.gz"
+           tar -zxf /opt/jdk-8u161-linux-x64.tar.gz
+           mv jdk1.8.0_161 jdk
            alternatives --install /usr/bin/java java /opt/jdk/bin/java 2
            alternatives --install /usr/bin/jar jar /opt/jdk/bin/jar 2
            alternatives --install /usr/bin/javac javac /opt/jdk/bin/javac 2
@@ -1078,9 +1078,9 @@ resources:
            chown -R hadoop.hadoop /home1/hadoop/.ssh
            chmod 600 /home1/hadoop/.ssh/authorized_keys
            cd /opt
-           wget --no-cookies --no-check-certificate --header "Cookie: gpw_e24=http%3A%2F%2Fwww.oracle.com%2F; oraclelicense=accept-securebackup-cookie" "http://download.oracle.com/otn-pub/java/jdk/8u101-b13/jdk-8u101-linux-x64.tar.gz"
-           tar -zxf /opt/jdk-8u101-linux-x64.tar.gz
-           mv jdk1.8.0_101 jdk
+           wget --no-cookies --no-check-certificate --header "Cookie: gpw_e24=http%3A%2F%2Fwww.oracle.com%2F; oraclelicense=accept-securebackup-cookie" "http://download.oracle.com/otn-pub/java/jdk/8u161-b12/jdk-8u161-linux-x64.tar.gz"
+           tar -zxf /opt/jdk-8u161-linux-x64.tar.gz
+           mv jdk1.8.0_161 jdk
            alternatives --install /usr/bin/java java /opt/jdk/bin/java 2
            alternatives --install /usr/bin/jar jar /opt/jdk/bin/jar 2
            alternatives --install /usr/bin/javac javac /opt/jdk/bin/javac 2

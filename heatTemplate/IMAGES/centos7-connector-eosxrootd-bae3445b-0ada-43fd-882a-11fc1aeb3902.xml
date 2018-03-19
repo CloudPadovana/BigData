@@ -1,0 +1,172 @@
+<template>
+ <name>centos7-sphdconnector-15032018_1500</name>
+ <description>CentOS7 x86_64 pacchetti cms spark connector-eosxrootd</description>
+ <disk>
+   <size>8G</size>
+ </disk>
+ <os>
+   <name>CentOS-7</name>
+   <version>7</version>
+   <arch>x86_64</arch>
+   <install type='iso'>
+     <iso>file:///Images/centos/7/isos/x86_64/CentOS-7-x86_64-DVD-1611.iso</iso>
+   </install>
+ </os>
+ 
+ <files>
+
+   <file name="/etc/sysconfig/network">
+NETWORKING=yes
+NOZEROCONF=yes
+   </file>
+         
+   <file name="/etc/sysconfig/network-scripts/ifcfg-eth0">
+DEVICE=eth0
+BOOTPROTO=dhcp
+ONBOOT=yes
+TYPE=Ethernet
+   </file>
+
+   <file name="/etc/ntp.conf">
+restrict default kod nomodify notrap nopeer noquery
+restrict -6 default kod nomodify notrap nopeer noquery
+restrict 127.0.0.1
+restrict -6 ::1
+server gwsl.lnl.infn.it
+driftfile /var/lib/ntp/drift
+disable auth
+   </file>
+
+   <file name="/etc/sysconfig/network-scripts/route-eth0">
+10.60.0.0/16 via 10.64.22.254
+193.206.93.0/24 via 10.64.22.254 
+   </file>
+
+
+   <file name="/opt/env_scala_hadoop.sh">
+#!/bin/bash
+export LD_LIBRARY_PATH=/usr/lib/:/usr/lib64/:/opt/hadoop/share/hadoop/common/lib/:/opt/jdk/lib/:/opt/hadoop/lib/native/
+export PATH=$PATH:/opt/jdk/bin:/opt/jdk/jre/bin:/opt/hadoop/bin:/opt/hadoop/sbin:/opt/spark-2.2.1-bin-hadoop2.7/bin/
+export JAVA_HOME=/opt/jdk
+   </file>
+
+   <file name="/etc/rc.d/rc.local" type="url">file:///root/OZ_Fede/SCRIPT_UI_T2/rc_sphdmesos.local</file> 
+
+ </files>
+
+ <commands>
+
+   <command name="removeudevnet">
+rm -f /etc/udev/rules.d/70-persistent-net.rules
+rm -f /lib/udev/rules.d/75-persistent-net-generator.rules
+   </command>
+
+   <command name="install-epel-7">
+rpm --import http://dl.fedoraproject.org/pub/epel/RPM-GPG-KEY-EPEL
+rpm --import http://dl.fedoraproject.org/pub/epel/RPM-GPG-KEY-EPEL-7
+wget --no-check-certificate http://dl.fedoraproject.org/pub/epel/7/x86_64/Packages/e/epel-release-7-11.noarch.rpm
+yum -y install epel-release-7-11.noarch.rpm
+   </command>
+
+   <command name="yum">
+yum -y install deltarpm
+   </command>
+
+   <command name="nopwdwheel">
+echo "%wheel ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+   </command>
+
+   <command name="setlocaltime">
+rm -f /etc/localtime
+ln -s /usr/share/zoneinfo/Europe/Rome /etc/localtime
+   </command>
+
+   <command name="setntpdon">
+/sbin/chkconfig ntpd on
+   </command>
+
+   <command name="mkinitrd">
+mkinitrd --with virtio_pci --with virtio_ring --with virtio_blk --with virtio_net --with virtio_balloon --with virtio -f /boot/initramfs-$(/usr/bin/uname -r).img $(/usr/bin/uname -r)
+   </command>
+
+   <command name="packages">
+yum -y install apr atop cloud-init cloud-utils cloud-utils-growpart csh emacs eog expect evince gcc-c++ git glibc-devel gd gedit htop httpd libxml2-devel mutt nc nfs-utils parted screen subversion tetex-dvips tetex-latex vim-X11 zlib-devel 
+   </command>
+
+   <command name="other_packages">
+yum -y install nedit perl-XML-XPath python-devel python-pip ipython python-tools mlocate unzip
+/bin/curl https://bintray.com/sbt/rpm/rpm | /bin/tee /etc/yum.repos.d/bintray-sbt-rpm.repo
+yum -y install sbt
+   </command>
+
+   <command name="python_packages_cms">
+/usr/bin/pip install --upgrade pip
+/usr/bin/pip install numpy
+/usr/bin/pip install pandas
+/usr/bin/pip install plotly
+/usr/bin/pip install cufflinks
+/usr/bin/pip install histogrammar 
+/usr/bin/pip install h5py 
+/usr/bin/pip install matplotlib
+   </command>
+
+   <command name="packages_cms">
+cd /usr/local/
+wget https://root.cern.ch/download/root_v6.08.00.Linux-centos7-x86_64-gcc4.8.tar.gz
+/bin/tar -vxzf root_v6.08.00.Linux-centos7-x86_64-gcc4.8.tar.gz -C /usr/local/
+source /usr/local/root/bin/thisroot.sh
+/usr/bin/pip install root_numpy
+   </command>
+
+   <command name="packages_spark_xrootd_hdfs_connector">
+yum -y install xrootd-client
+yum -y install xrootd-client-libs
+yum -y install xrootd-client-devel
+
+cd /opt
+
+wget --no-cookies --no-check-certificate --header "Cookie: gpw_e24=http%3A%2F%2Fwww.oracle.com%2F; oraclelicense=accept-securebackup-cookie" "http://download.oracle.com/otn-pub/java/jdk/8u161-b12/2f38c3b165be4555a1fa6e98c45e0808/jdk-8u161-linux-x64.tar.gz"
+tar -zxvf jdk-8u161-linux-x64.tar.gz
+ln -s jdk1.8.0_161 jdk
+
+wget http://www.eu.apache.org/dist/hadoop/common/hadoop-2.7.5/hadoop-2.7.5.tar.gz
+tar -xzvf hadoop-2.7.5.tar.gz
+ln -s hadoop-2.7.5 hadoop
+
+export LD_LIBRARY_PATH=/usr/lib/:/usr/lib64/:/opt/hadoop/share/hadoop/common/lib/:/opt/jdk/lib/:/opt/hadoop/lib/native/
+export PATH=$PATH:/opt/jdk/bin:/opt/jdk/jre/bin:/opt/hadoop/bin:/opt/hadoop/sbin
+export JAVA_HOME=/opt/jdk
+
+wget https://github.com/cerndb/hadoop-xrootd/archive/master.zip
+unzip master.zip
+cd hadoop-xrootd-master
+make all
+cp libjXrdCl.so /opt/hadoop/lib/native/
+cp EOSfs.jar /opt/hadoop/share/hadoop/common/lib/
+
+cd /opt
+wget http://mirror.nohup.it/apache/spark/spark-2.2.1/spark-2.2.1-bin-hadoop2.7.tgz
+tar -zxvf spark-2.2.1-bin-hadoop2.7.tgz
+
+   </command>
+
+   <command name="change_permission">
+chmod +x /etc/rc.d/rc.local
+chmod +rx /opt/env_scala_hadoop.sh
+   </command>
+
+   <command name="create_link">
+ln -s /usr/lib64/libsasl2.so.3.0.0 /usr/lib64/libsasl2.so.2
+   </command>
+
+   <command name="configure-cloudinit">
+sed -i 's/disable_root: 1/disable_root: 0/' /etc/cloud/cloud.cfg
+sed -i 's/ssh_pwauth:   0/ssh_pwauth:   1/g' /etc/cloud/cloud.cfg
+sed -i '/name: cloud-user/a \ \ \ \ lock_passwd: False' /etc/cloud/cloud.cfg
+sed -i 's/name: cloud-user/name: root/' /etc/cloud/cloud.cfg
+sed -i 's/set_hostname/[set_hostname, always]/g' /etc/cloud/cloud.cfg
+   </command>
+
+ </commands>
+
+</template>

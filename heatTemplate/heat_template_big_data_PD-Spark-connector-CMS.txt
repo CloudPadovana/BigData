@@ -1,0 +1,725 @@
+heat_template_version: 2013-05-23
+description: Create VM, network and security group for Big Data testing - spark + connector in CMS tenant
+
+parameters:
+    
+  image_to_use:
+    type: string
+    label: Image name or ID
+    description: Image used for all nodo in big data cluster (CentOS7)
+    default: bae3445b-0ada-43fd-882a-11fc1aeb3902 
+  
+  flavor_to_use:
+    type: string
+    label: Flavor name 
+    description: Flavor used for all nodos in big data cluster
+    default: cldareapd.medium
+
+  key_name_user:
+    type: string
+    label: Public ssh key of one user.
+    description: Public ssh key of one user.
+    default: pub
+
+  tenant_net_name:
+    type: string
+    label: Network ID of the tenant
+    description: This parameter has been set with the id of the tenant network. If you have more than one choose one of thoose.
+    default: c0326d8a-6959-4111-9cf6-0021a1b55eb9
+
+  tenant_subnet_name:
+    type: string
+    label: Sub network of the tenant
+    description: This parameter has been set with the name of the tenant sub network. If you have more than one choose one of thoose.
+    default: "sub-CMS-lan"
+  
+  fixed_ip_nodo_1:
+    type: string
+    label: Fixed ip for nodo1 host
+    description: Fixed ip for nodo1 host
+    default: "10.64.22.198"
+
+  fixed_ip_nodo_2:
+    type: string
+    label: Fixed ip for nodo2 host
+    description: Fixed ip for nodo2 host
+    default: "10.64.22.200"
+
+  fixed_ip_nodo_3:
+    type: string
+    label: Fixed ip for nodo3 host
+    description: Fixed ip for nodo3 host
+    default: "10.64.22.201"
+
+  fixed_ip_nodo_4:
+    type: string
+    label: Fixed ip for nodo4 host
+    description: Fixed ip for nodo4 host
+    default: "10.64.22.202"
+
+  fixed_ip_nodo_5:
+    type: string
+    label: Fixed ip for nodo5 host
+    description: Fixed ip for nodo5 host
+    default: "10.64.22.203"
+
+  fixed_ip_nodo_6:
+    type: string
+    label: Fixed ip for nodo6 host
+    description: Fixed ip for nodo6 host
+    default: "10.64.22.204"
+
+resources:
+  
+  root_pw:
+   type: OS::Heat::RandomString
+   properties:
+      length: 8 
+
+  secgroup-bigdata_secgroup:
+    type: OS::Neutron::SecurityGroup
+    properties:
+      description: "Access to ssh, ping connections for all VM in this security group"
+      name: "secgroup-bigdata"
+      rules: [{"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 5, "remote_mode": remote_ip_prefix, "port_range_max": 65522, "protocol": TCP}, {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "remote_mode": remote_ip_prefix, "protocol": ICMP}]
+
+
+  nodo1_server_port:
+    type: OS::Neutron::Port
+    properties:
+      name: "nodo1-server-port"
+      network_id: { get_param: tenant_net_name }
+      fixed_ips:
+        - { ip_address: { get_param: fixed_ip_nodo_1 }, subnet: { get_param: tenant_subnet_name } }
+      security_groups: [{Ref: secgroup-bigdata_secgroup},]
+
+  nodo1_server_instance:
+    type: OS::Nova::Server
+    properties:
+      name: "nodo1"
+      key_name: { get_param: key_name_user }
+      image: { get_param: image_to_use } 
+      flavor: { get_param: flavor_to_use }
+      networks:
+        - port: { get_resource: nodo1_server_port }
+      user_data_format: RAW
+      user_data:
+        str_replace:
+          template: |
+           #!/bin/bash
+           echo -n root:$ROOT_PW | chpasswd
+           sed -i s/"PermitRootLogin without-password$"/"PermitRootLogin yes"/ /etc/ssh/sshd_config
+           sed -i s/"PasswordAuthentication no$"/"PasswordAuthentication yes"/ /etc/ssh/sshd_config
+           service sshd restart
+           cat > /etc/hosts << EOF
+           $IP_FIX_NODE1    nodo1.novalocal nodo1
+           $IP_FIX_NODE2    nodo2.novalocal nodo2
+           $IP_FIX_NODE3    nodo3.novalocal nodo3
+           $IP_FIX_NODE4    nodo4.novalocal nodo4
+           $IP_FIX_NODE5    nodo5.novalocal nodo5
+           $IP_FIX_NODE6    nodo6.novalocal nodo6
+           127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+           ::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+           EOF
+           #yum update
+           yum install -y ntp tar wget git telnet
+           cat > /etc/hostname  << EOF
+           nodo1.novalocal nodo1
+           EOF
+           sed -i 0,/'requiretty'/{s/'requiretty'/'!requiretty'/} /etc/sudoers
+           yum -y install http://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm 
+           yum -y install sshpass
+           curl -k -X PUT -H 'Content-Type:application/json' \
+                   -d '{"Status" : "SUCCESS","Reason" : "Configuration OK","UniqueId" : "NODO1","Data" : "Nodo1 started Configured."}' \
+                   "$wait_handle$"
+           alternatives --install /usr/bin/java java /opt/jdk/bin/java 2
+           alternatives --install /usr/bin/jar jar /opt/jdk/bin/jar 2
+           alternatives --install /usr/bin/javac javac /opt/jdk/bin/javac 2
+           alternatives --set jar /opt/jdk/bin/jar
+           alternatives --set javac /opt/jdk/bin/javac 
+           alternatives --set java /opt/jdk/bin/java
+           cat >> /etc/sysctl.conf << EOF
+           net.ipv6.conf.all.disable_ipv6 = 1
+           net.ipv6.conf.default.disable_ipv6 = 1
+           EOF
+           cat > /opt/spark-2.2.1-bin-hadoop2.7/conf/spark-env.sh << EOF
+           #!/usr/bin/env bash
+
+           export LD_LIBRARY_PATH=/opt/hadoop/lib/native/:\$LD_LIBRARY_PATH
+
+           export JAVA_OPTS_ERROR_HANDLING="-XX:ErrorFile=/tmp/spark-shell-hs_err_pid.log \
+           -XX:HeapDumpPath=/tmp/spark-shell-java_pid.hprof \
+           -XX:-HeapDumpOnOutOfMemoryError"
+
+           export JAVA_OPTS_GC="-XX:-PrintGC -XX:-PrintGCDetails \
+           -XX:-PrintGCTimeStamps \
+           -XX:-PrintTenuringDistribution \
+           -XX:-PrintAdaptiveSizePolicy \
+           -XX:GCLogFileSize=1024K \
+           -XX:-UseGCLogFileRotation \
+           -Xloggc:/tmp/spark-shell-gc.log \
+           -XX:+UseConcMarkSweepGC"
+
+           export JAVA_OPTS="$JAVA_OPTS_ERROR_HANDLING $JAVA_OPTS_GC"
+
+           export HADOOP_HOME="/opt/hadoop"
+           export HADOOP_CONF_DIR="\$HADOOP_HOME/etc/hadoop"
+           export HDFS_URL=" "
+           export SPARK_YARN_USER_ENV="JAVA_HOME=/opt/jdk"
+
+           export MASTER="yarn-client"
+           export SPARK_LOCAL_IP=$IP_FIX_NODE1
+           export SPARK_EXECUTOR_HOME="/opt/spark-2.2.1-bin-hadoop2.7"
+           export YARN_APPLICATION_CLASSPATH="log4j.properties"
+
+           export SPARK_MASTER_OPTS="-Dspark.deploy.defaultCores=4 -Dspark.driver.memory=2g"
+           export SPARK_MASTER_MEMORY="1500M"
+           export SPARK_DRIVER_MEMORY="1500M"
+           export SPARK_WORKER_MEMORY="3000M"
+           export SPARK_EXECUTOR_MEMORY="1000M"
+           EOF
+           
+           source /opt/spark-2.2.1-bin-hadoop2.7/conf/spark-env.sh; /opt/spark-2.2.1-bin-hadoop2.7/sbin/start-master.sh
+
+          params:
+            $ROOT_PW: {get_resource: root_pw}
+            $IP_FIX_NODE1: {get_param: fixed_ip_nodo_1}
+            $IP_FIX_NODE2: {get_param: fixed_ip_nodo_2}
+            $IP_FIX_NODE3: {get_param: fixed_ip_nodo_3}
+            $IP_FIX_NODE4: {get_param: fixed_ip_nodo_4}
+            $IP_FIX_NODE5: {get_param: fixed_ip_nodo_5}
+            $IP_FIX_NODE6: {get_param: fixed_ip_nodo_6}
+            $wait_handle$: { get_resource: nodo1_instance_wait_handle }
+
+  nodo1_instance_wait:
+    type: "AWS::CloudFormation::WaitCondition"
+    depends_on: nodo1_server_instance 
+    properties:
+      Handle:
+        get_resource: nodo1_instance_wait_handle
+      Timeout: 3600
+
+  nodo1_instance_wait_handle:
+    type: "AWS::CloudFormation::WaitConditionHandle"
+  
+
+  nodo2_server_port:
+    type: OS::Neutron::Port
+    properties:
+      name: "nodo2-server-port"
+      network_id: { get_param: tenant_net_name }
+      fixed_ips:
+        - { ip_address: { get_param: fixed_ip_nodo_2 }, subnet: { get_param: tenant_subnet_name } }
+      security_groups: [{Ref: secgroup-bigdata_secgroup},]
+
+  nodo2_server_instance:
+    type: OS::Nova::Server
+    depends_on: nodo1_instance_wait
+    properties:
+      name: "nodo2"
+      key_name: { get_param: key_name_user }
+      image: { get_param: image_to_use }
+      flavor: { get_param: flavor_to_use }
+      networks:
+        - port: { get_resource: nodo2_server_port }
+      user_data_format: RAW
+      user_data:
+        str_replace:
+          template: |
+           #!/bin/bash
+           echo -n root:$ROOT_PW | chpasswd
+           sed -i s/"PermitRootLogin without-password$"/"PermitRootLogin yes"/ /etc/ssh/sshd_config
+           sed -i s/"PasswordAuthentication no$"/"PasswordAuthentication yes"/ /etc/ssh/sshd_config
+           service sshd restart
+           cat > /etc/hosts << EOF
+           $IP_FIX_NODE1    nodo1.novalocal nodo1
+           $IP_FIX_NODE2    nodo2.novalocal nodo2
+           $IP_FIX_NODE3    nodo3.novalocal nodo3
+           $IP_FIX_NODE4    nodo4.novalocal nodo4
+           $IP_FIX_NODE5    nodo5.novalocal nodo5
+           $IP_FIX_NODE6    nodo6.novalocal nodo6
+           127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+           ::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+           EOF
+           #yum update
+           yum install -y ntp tar wget git telnet
+           cat > /etc/hostname  << EOF
+           nodo2.novalocal nodo2
+           EOF
+           sed -i 0,/'requiretty'/{s/'requiretty'/'!requiretty'/} /etc/sudoers
+           yum -y install http://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+           yum -y install sshpass
+           alternatives --install /usr/bin/java java /opt/jdk/bin/java 2
+           alternatives --install /usr/bin/jar jar /opt/jdk/bin/jar 2
+           alternatives --install /usr/bin/javac javac /opt/jdk/bin/javac 2
+           alternatives --set jar /opt/jdk/bin/jar
+           alternatives --set javac /opt/jdk/bin/javac
+           alternatives --set java /opt/jdk/bin/java
+           cat >> /etc/sysctl.conf << EOF
+           net.ipv6.conf.all.disable_ipv6 = 1
+           net.ipv6.conf.default.disable_ipv6 = 1
+           EOF
+           cat > /opt/spark-2.2.1-bin-hadoop2.7/conf/spark-env.sh << EOF
+           #!/usr/bin/env bash
+
+           export LD_LIBRARY_PATH=/opt/hadoop/lib/native/:\$LD_LIBRARY_PATH
+
+           export JAVA_OPTS_ERROR_HANDLING="-XX:ErrorFile=/tmp/spark-shell-hs_err_pid.log \
+           -XX:HeapDumpPath=/tmp/spark-shell-java_pid.hprof \
+           -XX:-HeapDumpOnOutOfMemoryError"
+
+           export JAVA_OPTS_GC="-XX:-PrintGC -XX:-PrintGCDetails \
+           -XX:-PrintGCTimeStamps \
+           -XX:-PrintTenuringDistribution \
+           -XX:-PrintAdaptiveSizePolicy \
+           -XX:GCLogFileSize=1024K \
+           -XX:-UseGCLogFileRotation \
+           -Xloggc:/tmp/spark-shell-gc.log \
+           -XX:+UseConcMarkSweepGC"
+
+           export JAVA_OPTS="$JAVA_OPTS_ERROR_HANDLING $JAVA_OPTS_GC"
+     
+           export HADOOP_HOME="/opt/hadoop"
+           export HADOOP_CONF_DIR="\$HADOOP_HOME/etc/hadoop"
+           export HDFS_URL=" "
+           export SPARK_YARN_USER_ENV="JAVA_HOME=/opt/jdk"
+           
+           export MASTER="yarn-client"
+           export SPARK_LOCAL_IP=$IP_FIX_NODE2
+           export SPARK_EXECUTOR_HOME="/opt/spark-2.2.1-bin-hadoop2.7"
+           export YARN_APPLICATION_CLASSPATH="log4j.properties"
+
+           export SPARK_MASTER_OPTS="-Dspark.deploy.defaultCores=4 -Dspark.driver.memory=2g"
+           export SPARK_MASTER_MEMORY="1500M"
+           export SPARK_DRIVER_MEMORY="1500M"
+           export SPARK_WORKER_MEMORY="3000M"
+           export SPARK_EXECUTOR_MEMORY="1000M"
+           EOF
+
+           source /opt/spark-2.2.1-bin-hadoop2.7/conf/spark-env.sh; /opt/spark-2.2.1-bin-hadoop2.7/sbin/start-slave.sh spark://$IP_FIX_NODE1:7077
+          params:
+            $ROOT_PW: {get_resource: root_pw}
+            $IP_FIX_NODE1: {get_param: fixed_ip_nodo_1}
+            $IP_FIX_NODE2: {get_param: fixed_ip_nodo_2}
+            $IP_FIX_NODE3: {get_param: fixed_ip_nodo_3}
+            $IP_FIX_NODE4: {get_param: fixed_ip_nodo_4}
+            $IP_FIX_NODE5: {get_param: fixed_ip_nodo_5}
+            $IP_FIX_NODE6: {get_param: fixed_ip_nodo_6}
+
+
+  nodo3_server_port:
+    type: OS::Neutron::Port
+    properties:
+      name: "nodo3-server-port"
+      network_id: { get_param: tenant_net_name }
+      fixed_ips:
+        - { ip_address: { get_param: fixed_ip_nodo_3 }, subnet: { get_param: tenant_subnet_name } }
+      security_groups: [{Ref: secgroup-bigdata_secgroup},]
+
+  nodo3_server_instance:
+    type: OS::Nova::Server
+    depends_on: nodo1_instance_wait
+    properties:
+      name: "nodo3"
+      key_name: { get_param: key_name_user }
+      image: { get_param: image_to_use }
+      flavor: { get_param: flavor_to_use }
+      networks:
+        - port: { get_resource: nodo3_server_port }
+      user_data_format: RAW
+      user_data:
+        str_replace:
+          template: |
+           #!/bin/bash
+           echo -n root:$ROOT_PW | chpasswd
+           sed -i s/"PermitRootLogin without-password$"/"PermitRootLogin yes"/ /etc/ssh/sshd_config
+           sed -i s/"PasswordAuthentication no$"/"PasswordAuthentication yes"/ /etc/ssh/sshd_config
+           service sshd restart
+           cat > /etc/hosts << EOF
+           $IP_FIX_NODE1    nodo1.novalocal nodo1
+           $IP_FIX_NODE2    nodo2.novalocal nodo2
+           $IP_FIX_NODE3    nodo3.novalocal nodo3
+           $IP_FIX_NODE4    nodo4.novalocal nodo4
+           $IP_FIX_NODE5    nodo5.novalocal nodo5
+           $IP_FIX_NODE6    nodo6.novalocal nodo6
+           127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+           ::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+           EOF
+           #yum update
+           yum install -y ntp tar wget git telnet
+           cat > /etc/hostname  << EOF
+           nodo3.novalocal nodo3
+           EOF
+           sed -i 0,/'requiretty'/{s/'requiretty'/'!requiretty'/} /etc/sudoers
+           yum -y install http://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+           yum -y install sshpass
+           alternatives --install /usr/bin/java java /opt/jdk/bin/java 2
+           alternatives --install /usr/bin/jar jar /opt/jdk/bin/jar 2
+           alternatives --install /usr/bin/javac javac /opt/jdk/bin/javac 2
+           alternatives --set jar /opt/jdk/bin/jar
+           alternatives --set javac /opt/jdk/bin/javac
+           alternatives --set java /opt/jdk/bin/java
+           cat >> /etc/sysctl.conf << EOF
+           net.ipv6.conf.all.disable_ipv6 = 1
+           net.ipv6.conf.default.disable_ipv6 = 1
+           EOF
+           cat > /opt/spark-2.2.1-bin-hadoop2.7/conf/spark-env.sh << EOF
+           #!/usr/bin/env bash
+
+           export LD_LIBRARY_PATH=/opt/hadoop/lib/native/:\$LD_LIBRARY_PATH
+
+           export JAVA_OPTS_ERROR_HANDLING="-XX:ErrorFile=/tmp/spark-shell-hs_err_pid.log \
+           -XX:HeapDumpPath=/tmp/spark-shell-java_pid.hprof \
+           -XX:-HeapDumpOnOutOfMemoryError"
+
+           export JAVA_OPTS_GC="-XX:-PrintGC -XX:-PrintGCDetails \
+           -XX:-PrintGCTimeStamps \
+           -XX:-PrintTenuringDistribution \
+           -XX:-PrintAdaptiveSizePolicy \
+           -XX:GCLogFileSize=1024K \
+           -XX:-UseGCLogFileRotation \
+           -Xloggc:/tmp/spark-shell-gc.log \
+           -XX:+UseConcMarkSweepGC"
+
+           export JAVA_OPTS="$JAVA_OPTS_ERROR_HANDLING $JAVA_OPTS_GC"
+
+           export HADOOP_HOME="/opt/hadoop"
+           export HADOOP_CONF_DIR="\$HADOOP_HOME/etc/hadoop"
+           export HDFS_URL=" "
+           export SPARK_YARN_USER_ENV="JAVA_HOME=/opt/jdk"
+
+           export MASTER="yarn-client"
+           export SPARK_LOCAL_IP=$IP_FIX_NODE3
+           export SPARK_EXECUTOR_HOME="/opt/spark-2.2.1-bin-hadoop2.7"
+           export YARN_APPLICATION_CLASSPATH="log4j.properties"
+
+           export SPARK_MASTER_OPTS="-Dspark.deploy.defaultCores=4 -Dspark.driver.memory=2g"
+           export SPARK_MASTER_MEMORY="1500M"
+           export SPARK_DRIVER_MEMORY="1500M"
+           export SPARK_WORKER_MEMORY="3000M"
+           export SPARK_EXECUTOR_MEMORY="1000M"
+           EOF
+
+           source /opt/spark-2.2.1-bin-hadoop2.7/conf/spark-env.sh; /opt/spark-2.2.1-bin-hadoop2.7/sbin/start-slave.sh spark://$IP_FIX_NODE1:7077
+          params:
+            $ROOT_PW: {get_resource: root_pw}
+            $IP_FIX_NODE1: {get_param: fixed_ip_nodo_1}
+            $IP_FIX_NODE2: {get_param: fixed_ip_nodo_2}
+            $IP_FIX_NODE3: {get_param: fixed_ip_nodo_3}
+            $IP_FIX_NODE4: {get_param: fixed_ip_nodo_4}
+            $IP_FIX_NODE5: {get_param: fixed_ip_nodo_5}
+            $IP_FIX_NODE6: {get_param: fixed_ip_nodo_6}
+
+  nodo4_server_port:
+    type: OS::Neutron::Port
+    properties:
+      name: "nodo4-server-port"
+      network_id: { get_param: tenant_net_name }
+      fixed_ips:
+        - { ip_address: { get_param: fixed_ip_nodo_4 }, subnet: { get_param: tenant_subnet_name } }
+      security_groups: [{Ref: secgroup-bigdata_secgroup},]
+
+  nodo4_server_instance:
+    type: OS::Nova::Server
+    depends_on: nodo1_instance_wait
+    properties:
+      name: "nodo4"
+      key_name: { get_param: key_name_user }
+      image: { get_param: image_to_use }
+      flavor: { get_param: flavor_to_use }
+      networks:
+        - port: { get_resource: nodo4_server_port }
+      user_data_format: RAW
+      user_data:
+        str_replace:
+          template: |
+           #!/bin/bash
+           echo -n root:$ROOT_PW | chpasswd
+           sed -i s/"PermitRootLogin without-password$"/"PermitRootLogin yes"/ /etc/ssh/sshd_config
+           sed -i s/"PasswordAuthentication no$"/"PasswordAuthentication yes"/ /etc/ssh/sshd_config
+           service sshd restart
+           cat > /etc/hosts << EOF
+           $IP_FIX_NODE1    nodo1.novalocal nodo1
+           $IP_FIX_NODE2    nodo2.novalocal nodo2
+           $IP_FIX_NODE3    nodo3.novalocal nodo3
+           $IP_FIX_NODE4    nodo4.novalocal nodo4
+           $IP_FIX_NODE5    nodo5.novalocal nodo5
+           $IP_FIX_NODE6    nodo6.novalocal nodo6
+           127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+           ::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+           EOF
+           sed -i 0,/'requiretty'/{s/'requiretty'/'!requiretty'/} /etc/sudoers
+           #yum update
+           yum install -y ntp tar wget git telnet
+           cat > /etc/hostname  << EOF
+           nodo4.novalocal nodo4
+           EOF
+           yum -y install http://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+           yum -y install sshpass
+           alternatives --install /usr/bin/java java /opt/jdk/bin/java 2
+           alternatives --install /usr/bin/jar jar /opt/jdk/bin/jar 2
+           alternatives --install /usr/bin/javac javac /opt/jdk/bin/javac 2
+           alternatives --set jar /opt/jdk/bin/jar
+           alternatives --set javac /opt/jdk/bin/javac
+           alternatives --set java /opt/jdk/bin/java
+           cat >> /etc/sysctl.conf << EOF
+           net.ipv6.conf.all.disable_ipv6 = 1
+           net.ipv6.conf.default.disable_ipv6 = 1
+           EOF
+           cat > /opt/spark-2.2.1-bin-hadoop2.7/conf/spark-env.sh << EOF
+           #!/usr/bin/env bash
+
+           export LD_LIBRARY_PATH=/opt/hadoop/lib/native/:\$LD_LIBRARY_PATH
+
+           export JAVA_OPTS_ERROR_HANDLING="-XX:ErrorFile=/tmp/spark-shell-hs_err_pid.log \
+           -XX:HeapDumpPath=/tmp/spark-shell-java_pid.hprof \
+           -XX:-HeapDumpOnOutOfMemoryError"
+
+           export JAVA_OPTS_GC="-XX:-PrintGC -XX:-PrintGCDetails \
+           -XX:-PrintGCTimeStamps \
+           -XX:-PrintTenuringDistribution \
+           -XX:-PrintAdaptiveSizePolicy \
+           -XX:GCLogFileSize=1024K \
+           -XX:-UseGCLogFileRotation \
+           -Xloggc:/tmp/spark-shell-gc.log \
+           -XX:+UseConcMarkSweepGC"
+
+           export JAVA_OPTS="$JAVA_OPTS_ERROR_HANDLING $JAVA_OPTS_GC"
+
+           export HADOOP_HOME="/opt/hadoop"
+           export HADOOP_CONF_DIR="\$HADOOP_HOME/etc/hadoop"
+           export HDFS_URL=" "
+           export SPARK_YARN_USER_ENV="JAVA_HOME=/opt/jdk"
+
+           export MASTER="yarn-client"
+           export SPARK_LOCAL_IP=$IP_FIX_NODE4
+           export SPARK_EXECUTOR_HOME="/opt/spark-2.2.1-bin-hadoop2.7"
+           export YARN_APPLICATION_CLASSPATH="log4j.properties"
+
+           export SPARK_MASTER_OPTS="-Dspark.deploy.defaultCores=4 -Dspark.driver.memory=2g"
+           export SPARK_MASTER_MEMORY="1500M"
+           export SPARK_DRIVER_MEMORY="1500M"
+           export SPARK_WORKER_MEMORY="3000M"
+           export SPARK_EXECUTOR_MEMORY="1000M"
+           EOF
+
+           source /opt/spark-2.2.1-bin-hadoop2.7/conf/spark-env.sh; /opt/spark-2.2.1-bin-hadoop2.7/sbin/start-slave.sh spark://$IP_FIX_NODE1:7077
+          params:
+            $ROOT_PW: {get_resource: root_pw}
+            $IP_FIX_NODE1: {get_param: fixed_ip_nodo_1}
+            $IP_FIX_NODE2: {get_param: fixed_ip_nodo_2}
+            $IP_FIX_NODE3: {get_param: fixed_ip_nodo_3}
+            $IP_FIX_NODE4: {get_param: fixed_ip_nodo_4}
+            $IP_FIX_NODE5: {get_param: fixed_ip_nodo_5}
+            $IP_FIX_NODE6: {get_param: fixed_ip_nodo_6}
+
+  nodo5_server_port:
+    type: OS::Neutron::Port
+    properties:
+      name: "nodo5-server-port"
+      network_id: { get_param: tenant_net_name }
+      fixed_ips:
+        - { ip_address: { get_param: fixed_ip_nodo_5 }, subnet: { get_param: tenant_subnet_name } }
+      security_groups: [{Ref: secgroup-bigdata_secgroup},]
+  
+  nodo5_server_instance:
+    type: OS::Nova::Server
+    depends_on: nodo1_instance_wait
+    properties:
+      name: "nodo5"
+      key_name: { get_param: key_name_user }
+      image: { get_param: image_to_use }
+      flavor: { get_param: flavor_to_use }
+      networks:
+        - port: { get_resource: nodo5_server_port }
+      user_data_format: RAW
+      user_data:
+        str_replace:
+          template: |
+           #!/bin/bash
+           echo -n root:$ROOT_PW | chpasswd
+           sed -i s/"PermitRootLogin without-password$"/"PermitRootLogin yes"/ /etc/ssh/sshd_config
+           sed -i s/"PasswordAuthentication no$"/"PasswordAuthentication yes"/ /etc/ssh/sshd_config
+           service sshd restart
+           cat > /etc/hosts << EOF
+           $IP_FIX_NODE1    nodo1.novalocal nodo1
+           $IP_FIX_NODE2    nodo2.novalocal nodo2
+           $IP_FIX_NODE3    nodo3.novalocal nodo3
+           $IP_FIX_NODE4    nodo4.novalocal nodo4
+           $IP_FIX_NODE5    nodo5.novalocal nodo5
+           $IP_FIX_NODE6    nodo6.novalocal nodo6
+           127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+           ::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+           EOF
+           sed -i 0,/'requiretty'/{s/'requiretty'/'!requiretty'/} /etc/sudoers
+           #yum update
+           yum install -y ntp tar wget git telnet
+           cat > /etc/hostname  << EOF
+           nodo5.novalocal nodo5
+           EOF
+           yum -y install http://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+           yum -y install sshpass
+           alternatives --install /usr/bin/java java /opt/jdk/bin/java 2
+           alternatives --install /usr/bin/jar jar /opt/jdk/bin/jar 2
+           alternatives --install /usr/bin/javac javac /opt/jdk/bin/javac 2
+           alternatives --set jar /opt/jdk/bin/jar
+           alternatives --set javac /opt/jdk/bin/javac
+           alternatives --set java /opt/jdk/bin/java
+           cat >> /etc/sysctl.conf << EOF
+           net.ipv6.conf.all.disable_ipv6 = 1
+           net.ipv6.conf.default.disable_ipv6 = 1
+           EOF
+           cat > /opt/spark-2.2.1-bin-hadoop2.7/conf/spark-env.sh << EOF
+           #!/usr/bin/env bash
+
+           export LD_LIBRARY_PATH=/opt/hadoop/lib/native/:\$LD_LIBRARY_PATH
+
+           export JAVA_OPTS_ERROR_HANDLING="-XX:ErrorFile=/tmp/spark-shell-hs_err_pid.log \
+           -XX:HeapDumpPath=/tmp/spark-shell-java_pid.hprof \
+           -XX:-HeapDumpOnOutOfMemoryError"
+
+           export JAVA_OPTS_GC="-XX:-PrintGC -XX:-PrintGCDetails \
+           -XX:-PrintGCTimeStamps \
+           -XX:-PrintTenuringDistribution \
+           -XX:-PrintAdaptiveSizePolicy \
+           -XX:GCLogFileSize=1024K \
+           -XX:-UseGCLogFileRotation \
+           -Xloggc:/tmp/spark-shell-gc.log \
+           -XX:+UseConcMarkSweepGC"
+
+           export JAVA_OPTS="$JAVA_OPTS_ERROR_HANDLING $JAVA_OPTS_GC"
+
+           export HADOOP_HOME="/opt/hadoop"
+           export HADOOP_CONF_DIR="\$HADOOP_HOME/etc/hadoop"
+           export HDFS_URL=" "
+           export SPARK_YARN_USER_ENV="JAVA_HOME=/opt/jdk"
+
+           export MASTER="yarn-client"
+           export SPARK_LOCAL_IP=$IP_FIX_NODE5
+           export SPARK_EXECUTOR_HOME="/opt/spark-2.2.1-bin-hadoop2.7"
+           export YARN_APPLICATION_CLASSPATH="log4j.properties"
+
+           export SPARK_MASTER_OPTS="-Dspark.deploy.defaultCores=4 -Dspark.driver.memory=2g"
+           export SPARK_MASTER_MEMORY="1500M"
+           export SPARK_DRIVER_MEMORY="1500M"
+           export SPARK_WORKER_MEMORY="3000M"
+           export SPARK_EXECUTOR_MEMORY="1000M"
+           EOF
+
+           source /opt/spark-2.2.1-bin-hadoop2.7/conf/spark-env.sh; /opt/spark-2.2.1-bin-hadoop2.7/sbin/start-slave.sh spark://$IP_FIX_NODE1:7077
+          params:
+            $ROOT_PW: {get_resource: root_pw}
+            $IP_FIX_NODE1: {get_param: fixed_ip_nodo_1}
+            $IP_FIX_NODE2: {get_param: fixed_ip_nodo_2}
+            $IP_FIX_NODE3: {get_param: fixed_ip_nodo_3}
+            $IP_FIX_NODE4: {get_param: fixed_ip_nodo_4}
+            $IP_FIX_NODE5: {get_param: fixed_ip_nodo_5}
+            $IP_FIX_NODE6: {get_param: fixed_ip_nodo_6}
+
+  nodo6_server_instance:
+    type: OS::Nova::Server
+    depends_on: nodo1_instance_wait
+    properties:
+      name: "nodo6"
+      key_name: { get_param: key_name_user }
+      image: { get_param: image_to_use }
+      flavor: { get_param: flavor_to_use }
+      networks:
+        - port: { get_resource: nodo6_server_port }
+      user_data_format: RAW
+      user_data:
+        str_replace:
+          template: |
+           #!/bin/bash
+           echo -n root:$ROOT_PW | chpasswd
+           sed -i s/"PermitRootLogin without-password$"/"PermitRootLogin yes"/ /etc/ssh/sshd_config
+           sed -i s/"PasswordAuthentication no$"/"PasswordAuthentication yes"/ /etc/ssh/sshd_config
+           service sshd restart
+           cat > /etc/hosts << EOF
+           $IP_FIX_NODE1    nodo1.novalocal nodo1
+           $IP_FIX_NODE2    nodo2.novalocal nodo2
+           $IP_FIX_NODE3    nodo3.novalocal nodo3
+           $IP_FIX_NODE4    nodo4.novalocal nodo4
+           $IP_FIX_NODE5    nodo5.novalocal nodo5
+           $IP_FIX_NODE6    nodo6.novalocal nodo6
+           127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+           ::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+           EOF
+           sed -i 0,/'requiretty'/{s/'requiretty'/'!requiretty'/} /etc/sudoers
+           #yum update
+           yum install -y ntp tar wget git telnet
+           cat > /etc/hostname  << EOF
+           nodo6.novalocal nodo6
+           EOF
+           yum -y install http://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+           yum -y install sshpass
+           alternatives --install /usr/bin/java java /opt/jdk/bin/java 2
+           alternatives --install /usr/bin/jar jar /opt/jdk/bin/jar 2
+           alternatives --install /usr/bin/javac javac /opt/jdk/bin/javac 2
+           alternatives --set jar /opt/jdk/bin/jar
+           alternatives --set javac /opt/jdk/bin/javac
+           alternatives --set java /opt/jdk/bin/java
+           cat >> /etc/sysctl.conf << EOF
+           net.ipv6.conf.all.disable_ipv6 = 1
+           net.ipv6.conf.default.disable_ipv6 = 1
+           EOF
+           cat > /opt/spark-2.2.1-bin-hadoop2.7/conf/spark-env.sh << EOF
+           #!/usr/bin/env bash
+
+           export LD_LIBRARY_PATH=/opt/hadoop/lib/native/:\$LD_LIBRARY_PATH
+
+           export JAVA_OPTS_ERROR_HANDLING="-XX:ErrorFile=/tmp/spark-shell-hs_err_pid.log \
+           -XX:HeapDumpPath=/tmp/spark-shell-java_pid.hprof \
+           -XX:-HeapDumpOnOutOfMemoryError"
+
+           export JAVA_OPTS_GC="-XX:-PrintGC -XX:-PrintGCDetails \
+           -XX:-PrintGCTimeStamps \
+           -XX:-PrintTenuringDistribution \
+           -XX:-PrintAdaptiveSizePolicy \
+           -XX:GCLogFileSize=1024K \
+           -XX:-UseGCLogFileRotation \
+           -Xloggc:/tmp/spark-shell-gc.log \
+           -XX:+UseConcMarkSweepGC"
+
+           export JAVA_OPTS="$JAVA_OPTS_ERROR_HANDLING $JAVA_OPTS_GC"
+
+           export HADOOP_HOME="/opt/hadoop"
+           export HADOOP_CONF_DIR="\$HADOOP_HOME/etc/hadoop"
+           export HDFS_URL=" "
+           export SPARK_YARN_USER_ENV="JAVA_HOME=/opt/jdk"
+
+           export MASTER="yarn-client"
+           export SPARK_LOCAL_IP=$IP_FIX_NODE6
+           export SPARK_EXECUTOR_HOME="/opt/spark-2.2.1-bin-hadoop2.7"
+           export YARN_APPLICATION_CLASSPATH="log4j.properties"
+
+           export SPARK_MASTER_OPTS="-Dspark.deploy.defaultCores=4 -Dspark.driver.memory=2g"
+           export SPARK_MASTER_MEMORY="1500M"
+           export SPARK_DRIVER_MEMORY="1500M"
+           export SPARK_WORKER_MEMORY="3000M"
+           export SPARK_EXECUTOR_MEMORY="1000M"
+           EOF
+
+           source /opt/spark-2.2.1-bin-hadoop2.7/conf/spark-env.sh; /opt/spark-2.2.1-bin-hadoop2.7/sbin/start-slave.sh spark://$IP_FIX_NODE1:7077
+          params:
+            $ROOT_PW: {get_resource: root_pw}
+            $IP_FIX_NODE1: {get_param: fixed_ip_nodo_1}
+            $IP_FIX_NODE2: {get_param: fixed_ip_nodo_2}
+            $IP_FIX_NODE3: {get_param: fixed_ip_nodo_3}
+            $IP_FIX_NODE4: {get_param: fixed_ip_nodo_4}
+            $IP_FIX_NODE5: {get_param: fixed_ip_nodo_5}
+            $IP_FIX_NODE6: {get_param: fixed_ip_nodo_6}
+
+  nodo6_server_port:
+    type: OS::Neutron::Port
+    properties:
+      name: "nodo6-server-port"
+      network_id: { get_param: tenant_net_name }
+      fixed_ips:
+        - { ip_address: { get_param: fixed_ip_nodo_6 }, subnet: { get_param: tenant_subnet_name } }
+      security_groups: [{Ref: secgroup-bigdata_secgroup},]
+
+outputs:
+  root_pw:
+    description: root pwd to access to all VMs in spark cluster
+    value: {get_resource: root_pw}

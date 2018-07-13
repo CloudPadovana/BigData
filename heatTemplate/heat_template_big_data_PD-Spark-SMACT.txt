@@ -1,0 +1,1129 @@
+heat_template_version: 2013-05-23
+description: Create VM, network and security group for Big Data testing - spark 2.3.0
+
+parameters:
+    
+  image_to_use:
+    type: string
+    label: Image name or ID
+    description: Image used for all nodo in big data cluster (CentOS7)
+    default: fb2906c4-56a1-45a1-9041-485716cb7016 
+  
+  flavor_to_use:
+    type: string
+    label: Flavor name 
+    description: Flavor used for all nodos in big data cluster
+    default: cldareapd.medium
+
+  key_name_user:
+    type: string
+    label: Public ssh key of one user.
+    description: Public ssh key of one user.
+    default: pub
+
+  tenant_net_name:
+    type: string
+    label: Network ID of the tenant
+    description: This parameter has been set with the id of the tenant network (SMACT-lan id)
+    default: d68e615a-7716-4e95-a413-492339300b58
+
+  tenant_subnet_name:
+    type: string
+    label: Sub network of the tenant
+    description: This parameter has been set with the name of the tenant sub network. If you have more than one choose one of thoose.
+    default: "sub-SMACT-lan"
+  
+  fixed_ip_nodo_1:
+    type: string
+    label: Fixed ip for nodo1 host
+    description: Fixed ip for nodo1 host
+    default: "10.64.48.215"
+
+  fixed_ip_nodo_2:
+    type: string
+    label: Fixed ip for nodo2 host
+    description: Fixed ip for nodo2 host
+    default: "10.64.48.216"
+
+  fixed_ip_nodo_3:
+    type: string
+    label: Fixed ip for nodo3 host
+    description: Fixed ip for nodo3 host
+    default: "10.64.48.217"
+
+  fixed_ip_nodo_4:
+    type: string
+    label: Fixed ip for nodo4 host
+    description: Fixed ip for nodo4 host
+    default: "10.64.48.218"
+
+  fixed_ip_nodo_5:
+    type: string
+    label: Fixed ip for nodo5 host
+    description: Fixed ip for nodo5 host
+    default: "10.64.48.219"
+
+  fixed_ip_nodo_6:
+    type: string
+    label: Fixed ip for nodo6 host
+    description: Fixed ip for nodo6 host
+    default: "10.64.48.220"
+
+resources:
+  
+  root_pw:
+   type: OS::Heat::RandomString
+   properties:
+      length: 8 
+
+  secgroup-bigdata_secgroup:
+    type: OS::Neutron::SecurityGroup
+    properties:
+      description: "Access to ssh, ping connections for all VM in this security group"
+      name: "secgroup-bigdata"
+      rules: [{"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 5, "remote_mode": remote_ip_prefix, "port_range_max": 65522, "protocol": TCP}, {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "remote_mode": remote_ip_prefix, "protocol": ICMP}]
+
+
+  nodo1_server_port:
+    type: OS::Neutron::Port
+    properties:
+      name: "nodo1-server-port"
+      network_id: { get_param: tenant_net_name }
+      fixed_ips:
+        - { ip_address: { get_param: fixed_ip_nodo_1 }, subnet: { get_param: tenant_subnet_name } }
+      security_groups: [{Ref: secgroup-bigdata_secgroup},]
+
+  nodo1_server_instance:
+    type: OS::Nova::Server
+    properties:
+      name: "nodo1"
+      key_name: { get_param: key_name_user }
+      image: { get_param: image_to_use } 
+      flavor: { get_param: flavor_to_use }
+      networks:
+        - port: { get_resource: nodo1_server_port }
+      user_data_format: RAW
+      user_data:
+        str_replace:
+          template: |
+           #!/bin/bash
+           echo -n root:$ROOT_PW | chpasswd
+           sed -i s/"PermitRootLogin without-password$"/"PermitRootLogin yes"/ /etc/ssh/sshd_config
+           sed -i s/"PasswordAuthentication no$"/"PasswordAuthentication yes"/ /etc/ssh/sshd_config
+           service sshd restart
+           cat > /etc/hosts << EOF
+           $IP_FIX_NODE1    nodo1.novalocal nodo1
+           $IP_FIX_NODE2    nodo2.novalocal nodo2
+           $IP_FIX_NODE3    nodo3.novalocal nodo3
+           $IP_FIX_NODE4    nodo4.novalocal nodo4
+           $IP_FIX_NODE5    nodo5.novalocal nodo5
+           $IP_FIX_NODE6    nodo6.novalocal nodo6
+           127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+           ::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+           EOF
+
+           #yum update
+
+           cat > /etc/hostname  << EOF
+           nodo1.novalocal nodo1
+           EOF
+
+           sed -i 0,/'requiretty'/{s/'requiretty'/'!requiretty'/} /etc/sudoers
+           yum -y install http://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+
+           cat <<EOF > /etc/yum.repos.d/carepo.repo
+           [carepo]
+           name=IGTF CA Repository
+           baseurl=http://linuxsoft.cern.ch/mirror/repository.egi.eu/sw/production/cas/1/current/
+           enabled=1
+           gpgcheck=0
+           EOF
+ 
+           yum -y install ntp tar wget git telnet vim voms-clients-cpp fetch-crl ca_CERN-GridCA-1.92-1.noarch
+           yum -y install sshpass
+
+           cat >> /etc/sysctl.conf << EOF
+           net.ipv6.conf.all.disable_ipv6 = 1
+           net.ipv6.conf.default.disable_ipv6 = 1
+           EOF
+
+           cat >> /etc/bashrc << EOF
+           export JAVA_HOME=/opt/jdk
+           export JRE_HOME=/opt/jdk/jre
+           export PATH=$PATH:/opt/jdk/bin:/opt/jdk/jre/bin
+           EOF
+
+           chmod 777 /opt/
+           source /etc/bashrc
+
+           cd /opt
+
+           wget --no-cookies --no-check-certificate --header "Cookie: gpw_e24=http%3A%2F%2Fwww.oracle.com%2F; oraclelicense=accept-securebackup-cookie" "http://download.oracle.com/otn-pub/java/jdk/8u171-b11/512cd62ec5174c3487ac17c61aaa89e8/jdk-8u171-linux-x64.tar.gz"
+           tar -zxf /opt/jdk-8u171-linux-x64.tar.gz
+           ln -s jdk1.8.0_171 jdk 
+
+           wget http://www.eu.apache.org/dist/hadoop/common/hadoop-2.7.6/hadoop-2.7.6.tar.gz
+           tar -xzvf hadoop-2.7.6.tar.gz
+           ln -s hadoop-2.7.6 hadoop
+
+           wget https://www.apache.org/dist/spark/spark-2.3.0/spark-2.3.0-bin-hadoop2.7.tgz
+           tar -zxf  spark-2.3.0-bin-hadoop2.7.tgz
+
+           cat > /opt/spark-2.3.0-bin-hadoop2.7/conf/spark-env.sh << EOF
+           #!/usr/bin/env bash
+
+           export LD_LIBRARY_PATH=/opt/hadoop/lib/native/:\$LD_LIBRARY_PATH
+
+           export JAVA_OPTS_ERROR_HANDLING="-XX:ErrorFile=/tmp/spark-shell-hs_err_pid.log \
+           -XX:HeapDumpPath=/tmp/spark-shell-java_pid.hprof \
+           -XX:-HeapDumpOnOutOfMemoryError"
+
+           export JAVA_OPTS_GC="-XX:-PrintGC -XX:-PrintGCDetails \
+           -XX:-PrintGCTimeStamps \
+           -XX:-PrintTenuringDistribution \
+           -XX:-PrintAdaptiveSizePolicy \
+           -XX:GCLogFileSize=1024K \
+           -XX:-UseGCLogFileRotation \
+           -Xloggc:/tmp/spark-shell-gc.log \
+           -XX:+UseConcMarkSweepGC"
+
+           export JAVA_OPTS="$JAVA_OPTS_ERROR_HANDLING $JAVA_OPTS_GC"
+
+           export HADOOP_HOME="/opt/hadoop"
+           export HADOOP_CONF_DIR="\$HADOOP_HOME/etc/hadoop"
+           export HDFS_URL=" "
+           export SPARK_YARN_USER_ENV="JAVA_HOME=/opt/jdk"
+
+           export MASTER="yarn-client"
+           export SPARK_LOCAL_IP=$IP_FIX_NODE1
+           export SPARK_EXECUTOR_HOME="/opt/spark-2.3.0-bin-hadoop2.7"
+           export YARN_APPLICATION_CLASSPATH="log4j.properties"
+
+           export SPARK_MASTER_OPTS="-Dspark.deploy.defaultCores=4 -Dspark.driver.memory=2g"
+           export SPARK_MASTER_MEMORY="1500M"
+           export SPARK_DRIVER_MEMORY="1500M"
+           export SPARK_WORKER_MEMORY="3000M"
+           export SPARK_EXECUTOR_MEMORY="1000M"
+           EOF
+
+           cat >> /opt/env_spark_hadoop.sh << EOF
+           #!/bin/bash
+           export LD_LIBRARY_PATH=/usr/lib/:/usr/lib64/:/opt/hadoop/share/hadoop/common/lib/:/opt/jdk/lib/:/opt/hadoop/lib/native/
+           export PATH=$PATH:/opt/jdk/bin:/opt/jdk/jre/bin:/opt/hadoop/bin:/opt/hadoop/sbin:/opt/spark-2.3.0-bin-hadoop2.7/bin/
+           export JAVA_HOME=/opt/jdk
+           EOF
+
+           ############## 
+           mkdir -p /etc/vomses
+
+           cat > /etc/vomses/cms-lcg-voms2.cern.ch << EOF 
+           "cms" "lcg-voms2.cern.ch" "15002" "/DC=ch/DC=cern/OU=computers/CN=lcg-voms2.cern.ch" "cms" "24
+           EOF
+
+           cat > /etc/vomses/cms-voms2.cern.ch << EOF 
+           "cms" "voms2.cern.ch" "15002" "/DC=ch/DC=cern/OU=computers/CN=voms2.cern.ch" "cms" "24"
+           EOF
+
+           mkdir -p /etc/grid-security/vomsdir/cms
+
+           cat > /etc/grid-security/vomsdir/cms/lcg-voms2.cern.ch.lsc << EOF
+           /DC=ch/DC=cern/OU=computers/CN=lcg-voms2.cern.ch
+           /DC=ch/DC=cern/CN=CERN Grid Certification Authority
+           EOF
+
+           cat > /etc/grid-security/vomsdir/cms/lcg-voms.cern.ch.lsc << EOF
+           /DC=ch/DC=cern/OU=computers/CN=lcg-voms.cern.ch
+           /DC=ch/DC=cern/CN=CERN Grid Certification Authority
+           EOF
+
+           cat > /etc/grid-security/vomsdir/cms/voms2.cern.ch.lsc << EOF
+           /DC=ch/DC=cern/OU=computers/CN=voms2.cern.ch
+           /DC=ch/DC=cern/CN=CERN Grid Certification Authority
+           EOF
+
+           cat > /etc/grid-security/vomsdir/cms/voms.cern.ch.lsc << EOF
+           /DC=ch/DC=cern/OU=computers/CN=voms.cern.ch
+           /DC=ch/DC=cern/CN=CERN Grid Certification Authority
+           EOF
+           ############## 
+           
+           ### FEDE da fare a mano una volta che il cluster e' attivo ###
+           #source /opt/spark-2.3.0-bin-hadoop2.7/conf/spark-env.sh; /opt/spark-2.3.0-bin-hadoop2.7/sbin/start-master.sh
+           #################
+
+          params:
+            $ROOT_PW: {get_resource: root_pw}
+            $IP_FIX_NODE1: {get_param: fixed_ip_nodo_1}
+            $IP_FIX_NODE2: {get_param: fixed_ip_nodo_2}
+            $IP_FIX_NODE3: {get_param: fixed_ip_nodo_3}
+            $IP_FIX_NODE4: {get_param: fixed_ip_nodo_4}
+            $IP_FIX_NODE5: {get_param: fixed_ip_nodo_5}
+            $IP_FIX_NODE6: {get_param: fixed_ip_nodo_6}
+            #$wait_handle$: { get_resource: nodo1_instance_wait_handle }
+
+  #nodo1_instance_wait:
+  #  type: "AWS::CloudFormation::WaitCondition"
+  #  depends_on: nodo1_server_instance 
+  #  properties:
+  #    Handle:
+  #      get_resource: nodo1_instance_wait_handle
+  #    Timeout: 3600
+
+  #nodo1_instance_wait_handle:
+  #  type: "AWS::CloudFormation::WaitConditionHandle"
+  
+
+  nodo2_server_port:
+    type: OS::Neutron::Port
+    properties:
+      name: "nodo2-server-port"
+      network_id: { get_param: tenant_net_name }
+      fixed_ips:
+        - { ip_address: { get_param: fixed_ip_nodo_2 }, subnet: { get_param: tenant_subnet_name } }
+      security_groups: [{Ref: secgroup-bigdata_secgroup},]
+
+  nodo2_server_instance:
+    type: OS::Nova::Server
+    #depends_on: nodo1_instance_wait
+    properties:
+      name: "nodo2"
+      key_name: { get_param: key_name_user }
+      image: { get_param: image_to_use }
+      flavor: { get_param: flavor_to_use }
+      networks:
+        - port: { get_resource: nodo2_server_port }
+      user_data_format: RAW
+      user_data:
+        str_replace:
+          template: |
+           #!/bin/bash
+           echo -n root:$ROOT_PW | chpasswd
+           sed -i s/"PermitRootLogin without-password$"/"PermitRootLogin yes"/ /etc/ssh/sshd_config
+           sed -i s/"PasswordAuthentication no$"/"PasswordAuthentication yes"/ /etc/ssh/sshd_config
+           service sshd restart
+           cat > /etc/hosts << EOF
+           $IP_FIX_NODE1    nodo1.novalocal nodo1
+           $IP_FIX_NODE2    nodo2.novalocal nodo2
+           $IP_FIX_NODE3    nodo3.novalocal nodo3
+           $IP_FIX_NODE4    nodo4.novalocal nodo4
+           $IP_FIX_NODE5    nodo5.novalocal nodo5
+           $IP_FIX_NODE6    nodo6.novalocal nodo6
+           127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+           ::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+           EOF
+
+           #yum update
+
+           cat > /etc/hostname  << EOF
+           nodo2.novalocal nodo2
+           EOF
+
+           sed -i 0,/'requiretty'/{s/'requiretty'/'!requiretty'/} /etc/sudoers
+           yum -y install http://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+
+           cat <<EOF > /etc/yum.repos.d/carepo.repo
+           [carepo]
+           name=IGTF CA Repository
+           baseurl=http://linuxsoft.cern.ch/mirror/repository.egi.eu/sw/production/cas/1/current/
+           enabled=1
+           gpgcheck=0
+           EOF
+
+           yum -y install ntp tar wget git telnet vim voms-clients-cpp fetch-crl ca_CERN-GridCA-1.92-1.noarch
+           yum -y install sshpass
+           
+           cat >> /etc/sysctl.conf << EOF
+           net.ipv6.conf.all.disable_ipv6 = 1
+           net.ipv6.conf.default.disable_ipv6 = 1
+           EOF
+
+           cat >> /etc/bashrc << EOF
+           export JAVA_HOME=/opt/jdk
+           export JRE_HOME=/opt/jdk/jre
+           export PATH=$PATH:/opt/jdk/bin:/opt/jdk/jre/bin
+           EOF
+
+           chmod 777 /opt/
+           source /etc/bashrc
+
+           cd /opt
+
+           wget --no-cookies --no-check-certificate --header "Cookie: gpw_e24=http%3A%2F%2Fwww.oracle.com%2F; oraclelicense=accept-securebackup-cookie" "http://download.oracle.com/otn-pub/java/jdk/8u171-b11/512cd62ec5174c3487ac17c61aaa89e8/jdk-8u171-linux-x64.tar.gz"
+           tar -zxf /opt/jdk-8u171-linux-x64.tar.gz
+           ln -s jdk1.8.0_171 jdk 
+
+           wget http://www.eu.apache.org/dist/hadoop/common/hadoop-2.7.6/hadoop-2.7.6.tar.gz
+           tar -xzvf hadoop-2.7.6.tar.gz
+           ln -s hadoop-2.7.6 hadoop
+
+           wget https://www.apache.org/dist/spark/spark-2.3.0/spark-2.3.0-bin-hadoop2.7.tgz
+           tar -zxf  spark-2.3.0-bin-hadoop2.7.tgz
+
+           cat > /opt/spark-2.3.0-bin-hadoop2.7/conf/spark-env.sh << EOF
+           #!/usr/bin/env bash
+
+           export LD_LIBRARY_PATH=/opt/hadoop/lib/native/:\$LD_LIBRARY_PATH
+
+           export JAVA_OPTS_ERROR_HANDLING="-XX:ErrorFile=/tmp/spark-shell-hs_err_pid.log \
+           -XX:HeapDumpPath=/tmp/spark-shell-java_pid.hprof \
+           -XX:-HeapDumpOnOutOfMemoryError"
+
+           export JAVA_OPTS_GC="-XX:-PrintGC -XX:-PrintGCDetails \
+           -XX:-PrintGCTimeStamps \
+           -XX:-PrintTenuringDistribution \
+           -XX:-PrintAdaptiveSizePolicy \
+           -XX:GCLogFileSize=1024K \
+           -XX:-UseGCLogFileRotation \
+           -Xloggc:/tmp/spark-shell-gc.log \
+           -XX:+UseConcMarkSweepGC"
+
+           export JAVA_OPTS="$JAVA_OPTS_ERROR_HANDLING $JAVA_OPTS_GC"
+     
+           export HADOOP_HOME="/opt/hadoop"
+           export HADOOP_CONF_DIR="\$HADOOP_HOME/etc/hadoop"
+           export HDFS_URL=" "
+           export SPARK_YARN_USER_ENV="JAVA_HOME=/opt/jdk"
+           
+           export MASTER="yarn-client"
+           export SPARK_LOCAL_IP=$IP_FIX_NODE2
+           export SPARK_EXECUTOR_HOME="/opt/spark-2.3.0-bin-hadoop2.7"
+           export YARN_APPLICATION_CLASSPATH="log4j.properties"
+
+           export SPARK_MASTER_OPTS="-Dspark.deploy.defaultCores=4 -Dspark.driver.memory=2g"
+           export SPARK_MASTER_MEMORY="1500M"
+           export SPARK_DRIVER_MEMORY="1500M"
+           export SPARK_WORKER_MEMORY="3000M"
+           export SPARK_EXECUTOR_MEMORY="1000M"
+           EOF
+ 
+           cat >> /opt/env_spark_hadoop.sh << EOF
+           #!/bin/bash
+           export LD_LIBRARY_PATH=/usr/lib/:/usr/lib64/:/opt/hadoop/share/hadoop/common/lib/:/opt/jdk/lib/:/opt/hadoop/lib/native/
+           export PATH=$PATH:/opt/jdk/bin:/opt/jdk/jre/bin:/opt/hadoop/bin:/opt/hadoop/sbin:/opt/spark-2.3.0-bin-hadoop2.7/bin/
+           export JAVA_HOME=/opt/jdk
+           EOF
+
+           ###################
+           mkdir -p /etc/vomses
+
+           cat > /etc/vomses/cms-lcg-voms2.cern.ch << EOF 
+           "cms" "lcg-voms2.cern.ch" "15002" "/DC=ch/DC=cern/OU=computers/CN=lcg-voms2.cern.ch" "cms" "24
+           EOF
+
+           cat > /etc/vomses/cms-voms2.cern.ch << EOF 
+           "cms" "voms2.cern.ch" "15002" "/DC=ch/DC=cern/OU=computers/CN=voms2.cern.ch" "cms" "24"
+           EOF
+
+           mkdir -p /etc/grid-security/vomsdir/cms
+
+           cat > /etc/grid-security/vomsdir/cms/lcg-voms2.cern.ch.lsc << EOF
+           /DC=ch/DC=cern/OU=computers/CN=lcg-voms2.cern.ch
+           /DC=ch/DC=cern/CN=CERN Grid Certification Authority
+           EOF
+
+           cat > /etc/grid-security/vomsdir/cms/lcg-voms.cern.ch.lsc << EOF
+           /DC=ch/DC=cern/OU=computers/CN=lcg-voms.cern.ch
+           /DC=ch/DC=cern/CN=CERN Grid Certification Authority
+           EOF
+
+           cat > /etc/grid-security/vomsdir/cms/voms2.cern.ch.lsc << EOF
+           /DC=ch/DC=cern/OU=computers/CN=voms2.cern.ch
+           /DC=ch/DC=cern/CN=CERN Grid Certification Authority
+           EOF
+
+           cat > /etc/grid-security/vomsdir/cms/voms.cern.ch.lsc << EOF
+           /DC=ch/DC=cern/OU=computers/CN=voms.cern.ch
+           /DC=ch/DC=cern/CN=CERN Grid Certification Authority
+           EOF
+           ############## 
+           
+           ### FEDE da fare a mano ###  
+           #source /opt/spark-2.3.0-bin-hadoop2.7/conf/spark-env.sh; /opt/spark-2.3.0-bin-hadoop2.7/sbin/start-slave.sh spark://$IP_FIX_NODE1:7077
+           ###############
+
+          params:
+            $ROOT_PW: {get_resource: root_pw}
+            $IP_FIX_NODE1: {get_param: fixed_ip_nodo_1}
+            $IP_FIX_NODE2: {get_param: fixed_ip_nodo_2}
+            $IP_FIX_NODE3: {get_param: fixed_ip_nodo_3}
+            $IP_FIX_NODE4: {get_param: fixed_ip_nodo_4}
+            $IP_FIX_NODE5: {get_param: fixed_ip_nodo_5}
+            $IP_FIX_NODE6: {get_param: fixed_ip_nodo_6}
+
+
+  nodo3_server_port:
+    type: OS::Neutron::Port
+    properties:
+      name: "nodo3-server-port"
+      network_id: { get_param: tenant_net_name }
+      fixed_ips:
+        - { ip_address: { get_param: fixed_ip_nodo_3 }, subnet: { get_param: tenant_subnet_name } }
+      security_groups: [{Ref: secgroup-bigdata_secgroup},]
+
+  nodo3_server_instance:
+    type: OS::Nova::Server
+    #depends_on: nodo1_instance_wait
+    properties:
+      name: "nodo3"
+      key_name: { get_param: key_name_user }
+      image: { get_param: image_to_use }
+      flavor: { get_param: flavor_to_use }
+      networks:
+        - port: { get_resource: nodo3_server_port }
+      user_data_format: RAW
+      user_data:
+        str_replace:
+          template: |
+           #!/bin/bash
+           echo -n root:$ROOT_PW | chpasswd
+           sed -i s/"PermitRootLogin without-password$"/"PermitRootLogin yes"/ /etc/ssh/sshd_config
+           sed -i s/"PasswordAuthentication no$"/"PasswordAuthentication yes"/ /etc/ssh/sshd_config
+           service sshd restart
+           cat > /etc/hosts << EOF
+           $IP_FIX_NODE1    nodo1.novalocal nodo1
+           $IP_FIX_NODE2    nodo2.novalocal nodo2
+           $IP_FIX_NODE3    nodo3.novalocal nodo3
+           $IP_FIX_NODE4    nodo4.novalocal nodo4
+           $IP_FIX_NODE5    nodo5.novalocal nodo5
+           $IP_FIX_NODE6    nodo6.novalocal nodo6
+           127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+           ::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+           EOF
+
+           #yum update
+
+           cat > /etc/hostname  << EOF
+           nodo3.novalocal nodo3
+           EOF
+
+           sed -i 0,/'requiretty'/{s/'requiretty'/'!requiretty'/} /etc/sudoers
+           yum -y install http://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+
+           cat <<EOF > /etc/yum.repos.d/carepo.repo
+           [carepo]
+           name=IGTF CA Repository
+           baseurl=http://linuxsoft.cern.ch/mirror/repository.egi.eu/sw/production/cas/1/current/
+           enabled=1
+           gpgcheck=0
+           EOF
+
+           yum -y install ntp tar wget git telnet vim voms-clients-cpp fetch-crl ca_CERN-GridCA-1.92-1.noarch
+           yum -y install sshpass
+
+           cat >> /etc/sysctl.conf << EOF
+           net.ipv6.conf.all.disable_ipv6 = 1
+           net.ipv6.conf.default.disable_ipv6 = 1
+           EOF
+
+           cat >> /etc/bashrc << EOF
+           export JAVA_HOME=/opt/jdk
+           export JRE_HOME=/opt/jdk/jre
+           export PATH=$PATH:/opt/jdk/bin:/opt/jdk/jre/bin
+           EOF
+
+           chmod 777 /opt/
+           source /etc/bashrc
+
+           cd /opt
+
+           wget --no-cookies --no-check-certificate --header "Cookie: gpw_e24=http%3A%2F%2Fwww.oracle.com%2F; oraclelicense=accept-securebackup-cookie" "http://download.oracle.com/otn-pub/java/jdk/8u171-b11/512cd62ec5174c3487ac17c61aaa89e8/jdk-8u171-linux-x64.tar.gz"
+           tar -zxf /opt/jdk-8u171-linux-x64.tar.gz
+           ln -s jdk1.8.0_171 jdk 
+
+           wget http://www.eu.apache.org/dist/hadoop/common/hadoop-2.7.6/hadoop-2.7.6.tar.gz
+           tar -xzvf hadoop-2.7.6.tar.gz
+           ln -s hadoop-2.7.6 hadoop
+
+           wget https://www.apache.org/dist/spark/spark-2.3.0/spark-2.3.0-bin-hadoop2.7.tgz
+           tar -zxf  spark-2.3.0-bin-hadoop2.7.tgz
+
+           cat > /opt/spark-2.3.0-bin-hadoop2.7/conf/spark-env.sh << EOF
+           #!/usr/bin/env bash
+
+           export LD_LIBRARY_PATH=/opt/hadoop/lib/native/:\$LD_LIBRARY_PATH
+
+           export JAVA_OPTS_ERROR_HANDLING="-XX:ErrorFile=/tmp/spark-shell-hs_err_pid.log \
+           -XX:HeapDumpPath=/tmp/spark-shell-java_pid.hprof \
+           -XX:-HeapDumpOnOutOfMemoryError"
+
+           export JAVA_OPTS_GC="-XX:-PrintGC -XX:-PrintGCDetails \
+           -XX:-PrintGCTimeStamps \
+           -XX:-PrintTenuringDistribution \
+           -XX:-PrintAdaptiveSizePolicy \
+           -XX:GCLogFileSize=1024K \
+           -XX:-UseGCLogFileRotation \
+           -Xloggc:/tmp/spark-shell-gc.log \
+           -XX:+UseConcMarkSweepGC"
+
+           export JAVA_OPTS="$JAVA_OPTS_ERROR_HANDLING $JAVA_OPTS_GC"
+
+           export HADOOP_HOME="/opt/hadoop"
+           export HADOOP_CONF_DIR="\$HADOOP_HOME/etc/hadoop"
+           export HDFS_URL=" "
+           export SPARK_YARN_USER_ENV="JAVA_HOME=/opt/jdk"
+
+           export MASTER="yarn-client"
+           export SPARK_LOCAL_IP=$IP_FIX_NODE3
+           export SPARK_EXECUTOR_HOME="/opt/spark-2.3.0-bin-hadoop2.7"
+           export YARN_APPLICATION_CLASSPATH="log4j.properties"
+
+           export SPARK_MASTER_OPTS="-Dspark.deploy.defaultCores=4 -Dspark.driver.memory=2g"
+           export SPARK_MASTER_MEMORY="1500M"
+           export SPARK_DRIVER_MEMORY="1500M"
+           export SPARK_WORKER_MEMORY="3000M"
+           export SPARK_EXECUTOR_MEMORY="1000M"
+           EOF
+
+           ###########
+           mkdir -p /etc/vomses
+
+           cat > /etc/vomses/cms-lcg-voms2.cern.ch << EOF 
+           "cms" "lcg-voms2.cern.ch" "15002" "/DC=ch/DC=cern/OU=computers/CN=lcg-voms2.cern.ch" "cms" "24
+           EOF
+
+           cat > /etc/vomses/cms-voms2.cern.ch << EOF 
+           "cms" "voms2.cern.ch" "15002" "/DC=ch/DC=cern/OU=computers/CN=voms2.cern.ch" "cms" "24"
+           EOF
+
+           mkdir -p /etc/grid-security/vomsdir/cms
+
+           cat > /etc/grid-security/vomsdir/cms/lcg-voms2.cern.ch.lsc << EOF
+           /DC=ch/DC=cern/OU=computers/CN=lcg-voms2.cern.ch
+           /DC=ch/DC=cern/CN=CERN Grid Certification Authority
+           EOF
+
+           cat > /etc/grid-security/vomsdir/cms/lcg-voms.cern.ch.lsc << EOF
+           /DC=ch/DC=cern/OU=computers/CN=lcg-voms.cern.ch
+           /DC=ch/DC=cern/CN=CERN Grid Certification Authority
+           EOF
+
+           cat > /etc/grid-security/vomsdir/cms/voms2.cern.ch.lsc << EOF
+           /DC=ch/DC=cern/OU=computers/CN=voms2.cern.ch
+           /DC=ch/DC=cern/CN=CERN Grid Certification Authority
+           EOF
+
+           cat > /etc/grid-security/vomsdir/cms/voms.cern.ch.lsc << EOF
+           /DC=ch/DC=cern/OU=computers/CN=voms.cern.ch
+           /DC=ch/DC=cern/CN=CERN Grid Certification Authority
+           EOF
+           ############## 
+
+           #source /opt/spark-2.3.0-bin-hadoop2.7/conf/spark-env.sh; /opt/spark-2.3.0-bin-hadoop2.7/sbin/start-slave.sh spark://$IP_FIX_NODE1:7077
+          params:
+            $ROOT_PW: {get_resource: root_pw}
+            $IP_FIX_NODE1: {get_param: fixed_ip_nodo_1}
+            $IP_FIX_NODE2: {get_param: fixed_ip_nodo_2}
+            $IP_FIX_NODE3: {get_param: fixed_ip_nodo_3}
+            $IP_FIX_NODE4: {get_param: fixed_ip_nodo_4}
+            $IP_FIX_NODE5: {get_param: fixed_ip_nodo_5}
+            $IP_FIX_NODE6: {get_param: fixed_ip_nodo_6}
+
+  nodo4_server_port:
+    type: OS::Neutron::Port
+    properties:
+      name: "nodo4-server-port"
+      network_id: { get_param: tenant_net_name }
+      fixed_ips:
+        - { ip_address: { get_param: fixed_ip_nodo_4 }, subnet: { get_param: tenant_subnet_name } }
+      security_groups: [{Ref: secgroup-bigdata_secgroup},]
+
+  nodo4_server_instance:
+    type: OS::Nova::Server
+    #depends_on: nodo1_instance_wait
+    properties:
+      name: "nodo4"
+      key_name: { get_param: key_name_user }
+      image: { get_param: image_to_use }
+      flavor: { get_param: flavor_to_use }
+      networks:
+        - port: { get_resource: nodo4_server_port }
+      user_data_format: RAW
+      user_data:
+        str_replace:
+          template: |
+           #!/bin/bash
+           echo -n root:$ROOT_PW | chpasswd
+           sed -i s/"PermitRootLogin without-password$"/"PermitRootLogin yes"/ /etc/ssh/sshd_config
+           sed -i s/"PasswordAuthentication no$"/"PasswordAuthentication yes"/ /etc/ssh/sshd_config
+           service sshd restart
+           cat > /etc/hosts << EOF
+           $IP_FIX_NODE1    nodo1.novalocal nodo1
+           $IP_FIX_NODE2    nodo2.novalocal nodo2
+           $IP_FIX_NODE3    nodo3.novalocal nodo3
+           $IP_FIX_NODE4    nodo4.novalocal nodo4
+           $IP_FIX_NODE5    nodo5.novalocal nodo5
+           $IP_FIX_NODE6    nodo6.novalocal nodo6
+           127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+           ::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+           EOF
+
+           sed -i 0,/'requiretty'/{s/'requiretty'/'!requiretty'/} /etc/sudoers
+
+           #yum update
+           
+           cat > /etc/hostname  << EOF
+           nodo4.novalocal nodo4
+           EOF
+
+           yum -y install http://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+
+           cat <<EOF > /etc/yum.repos.d/carepo.repo
+           [carepo]
+           name=IGTF CA Repository
+           baseurl=http://linuxsoft.cern.ch/mirror/repository.egi.eu/sw/production/cas/1/current/
+           enabled=1
+           gpgcheck=0
+           EOF
+
+           yum -y install ntp tar wget git telnet vim voms-clients-cpp fetch-crl ca_CERN-GridCA-1.92-1.noarch
+           yum -y install sshpass
+
+           cat >> /etc/sysctl.conf << EOF
+           net.ipv6.conf.all.disable_ipv6 = 1
+           net.ipv6.conf.default.disable_ipv6 = 1
+           EOF
+
+           cat >> /etc/bashrc << EOF
+           export JAVA_HOME=/opt/jdk
+           export JRE_HOME=/opt/jdk/jre
+           export PATH=$PATH:/opt/jdk/bin:/opt/jdk/jre/bin
+           EOF
+
+           chmod 777 /opt/
+           source /etc/bashrc
+
+           cd /opt
+
+           wget --no-cookies --no-check-certificate --header "Cookie: gpw_e24=http%3A%2F%2Fwww.oracle.com%2F; oraclelicense=accept-securebackup-cookie" "http://download.oracle.com/otn-pub/java/jdk/8u171-b11/512cd62ec5174c3487ac17c61aaa89e8/jdk-8u171-linux-x64.tar.gz"
+           tar -zxf /opt/jdk-8u171-linux-x64.tar.gz
+           ln -s jdk1.8.0_171 jdk 
+
+           wget http://www.eu.apache.org/dist/hadoop/common/hadoop-2.7.6/hadoop-2.7.6.tar.gz
+           tar -xzvf hadoop-2.7.6.tar.gz
+           ln -s hadoop-2.7.6 hadoop
+
+           wget https://www.apache.org/dist/spark/spark-2.3.0/spark-2.3.0-bin-hadoop2.7.tgz
+           tar -zxf  spark-2.3.0-bin-hadoop2.7.tgz
+
+           cat > /opt/spark-2.3.0-bin-hadoop2.7/conf/spark-env.sh << EOF
+           #!/usr/bin/env bash
+
+           export LD_LIBRARY_PATH=/opt/hadoop/lib/native/:\$LD_LIBRARY_PATH
+
+           export JAVA_OPTS_ERROR_HANDLING="-XX:ErrorFile=/tmp/spark-shell-hs_err_pid.log \
+           -XX:HeapDumpPath=/tmp/spark-shell-java_pid.hprof \
+           -XX:-HeapDumpOnOutOfMemoryError"
+
+           export JAVA_OPTS_GC="-XX:-PrintGC -XX:-PrintGCDetails \
+           -XX:-PrintGCTimeStamps \
+           -XX:-PrintTenuringDistribution \
+           -XX:-PrintAdaptiveSizePolicy \
+           -XX:GCLogFileSize=1024K \
+           -XX:-UseGCLogFileRotation \
+           -Xloggc:/tmp/spark-shell-gc.log \
+           -XX:+UseConcMarkSweepGC"
+
+           export JAVA_OPTS="$JAVA_OPTS_ERROR_HANDLING $JAVA_OPTS_GC"
+
+           export HADOOP_HOME="/opt/hadoop"
+           export HADOOP_CONF_DIR="\$HADOOP_HOME/etc/hadoop"
+           export HDFS_URL=" "
+           export SPARK_YARN_USER_ENV="JAVA_HOME=/opt/jdk"
+
+           export MASTER="yarn-client"
+           export SPARK_LOCAL_IP=$IP_FIX_NODE4
+           export SPARK_EXECUTOR_HOME="/opt/spark-2.3.0-bin-hadoop2.7"
+           export YARN_APPLICATION_CLASSPATH="log4j.properties"
+
+           export SPARK_MASTER_OPTS="-Dspark.deploy.defaultCores=4 -Dspark.driver.memory=2g"
+           export SPARK_MASTER_MEMORY="1500M"
+           export SPARK_DRIVER_MEMORY="1500M"
+           export SPARK_WORKER_MEMORY="3000M"
+           export SPARK_EXECUTOR_MEMORY="1000M"
+           EOF
+
+           ##########
+
+           mkdir -p /etc/vomses
+
+           cat > /etc/vomses/cms-lcg-voms2.cern.ch << EOF 
+           "cms" "lcg-voms2.cern.ch" "15002" "/DC=ch/DC=cern/OU=computers/CN=lcg-voms2.cern.ch" "cms" "24
+           EOF
+
+           cat > /etc/vomses/cms-voms2.cern.ch << EOF 
+           "cms" "voms2.cern.ch" "15002" "/DC=ch/DC=cern/OU=computers/CN=voms2.cern.ch" "cms" "24"
+           EOF
+
+           mkdir -p /etc/grid-security/vomsdir/cms
+
+           cat > /etc/grid-security/vomsdir/cms/lcg-voms2.cern.ch.lsc << EOF
+           /DC=ch/DC=cern/OU=computers/CN=lcg-voms2.cern.ch
+           /DC=ch/DC=cern/CN=CERN Grid Certification Authority
+           EOF
+
+           cat > /etc/grid-security/vomsdir/cms/lcg-voms.cern.ch.lsc << EOF
+           /DC=ch/DC=cern/OU=computers/CN=lcg-voms.cern.ch
+           /DC=ch/DC=cern/CN=CERN Grid Certification Authority
+           EOF
+
+           cat > /etc/grid-security/vomsdir/cms/voms2.cern.ch.lsc << EOF
+           /DC=ch/DC=cern/OU=computers/CN=voms2.cern.ch
+           /DC=ch/DC=cern/CN=CERN Grid Certification Authority
+           EOF
+
+           cat > /etc/grid-security/vomsdir/cms/voms.cern.ch.lsc << EOF
+           /DC=ch/DC=cern/OU=computers/CN=voms.cern.ch
+           /DC=ch/DC=cern/CN=CERN Grid Certification Authority
+           EOF
+           ############## 
+
+           #source /opt/spark-2.3.0-bin-hadoop2.7/conf/spark-env.sh; /opt/spark-2.3.0-bin-hadoop2.7/sbin/start-slave.sh spark://$IP_FIX_NODE1:7077
+          params:
+            $ROOT_PW: {get_resource: root_pw}
+            $IP_FIX_NODE1: {get_param: fixed_ip_nodo_1}
+            $IP_FIX_NODE2: {get_param: fixed_ip_nodo_2}
+            $IP_FIX_NODE3: {get_param: fixed_ip_nodo_3}
+            $IP_FIX_NODE4: {get_param: fixed_ip_nodo_4}
+            $IP_FIX_NODE5: {get_param: fixed_ip_nodo_5}
+            $IP_FIX_NODE6: {get_param: fixed_ip_nodo_6}
+
+  nodo5_server_port:
+    type: OS::Neutron::Port
+    properties:
+      name: "nodo5-server-port"
+      network_id: { get_param: tenant_net_name }
+      fixed_ips:
+        - { ip_address: { get_param: fixed_ip_nodo_5 }, subnet: { get_param: tenant_subnet_name } }
+      security_groups: [{Ref: secgroup-bigdata_secgroup},]
+  
+  nodo5_server_instance:
+    type: OS::Nova::Server
+    #depends_on: nodo1_instance_wait
+    properties:
+      name: "nodo5"
+      key_name: { get_param: key_name_user }
+      image: { get_param: image_to_use }
+      flavor: { get_param: flavor_to_use }
+      networks:
+        - port: { get_resource: nodo5_server_port }
+      user_data_format: RAW
+      user_data:
+        str_replace:
+          template: |
+           #!/bin/bash
+           echo -n root:$ROOT_PW | chpasswd
+           sed -i s/"PermitRootLogin without-password$"/"PermitRootLogin yes"/ /etc/ssh/sshd_config
+           sed -i s/"PasswordAuthentication no$"/"PasswordAuthentication yes"/ /etc/ssh/sshd_config
+           service sshd restart
+           cat > /etc/hosts << EOF
+           $IP_FIX_NODE1    nodo1.novalocal nodo1
+           $IP_FIX_NODE2    nodo2.novalocal nodo2
+           $IP_FIX_NODE3    nodo3.novalocal nodo3
+           $IP_FIX_NODE4    nodo4.novalocal nodo4
+           $IP_FIX_NODE5    nodo5.novalocal nodo5
+           $IP_FIX_NODE6    nodo6.novalocal nodo6
+           127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+           ::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+           EOF
+
+           sed -i 0,/'requiretty'/{s/'requiretty'/'!requiretty'/} /etc/sudoers
+
+           #yum update
+
+           cat > /etc/hostname  << EOF
+           nodo5.novalocal nodo5
+           EOF
+
+           yum -y install http://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+
+           cat <<EOF > /etc/yum.repos.d/carepo.repo
+           [carepo]
+           name=IGTF CA Repository
+           baseurl=http://linuxsoft.cern.ch/mirror/repository.egi.eu/sw/production/cas/1/current/
+           enabled=1
+           gpgcheck=0
+           EOF
+
+           yum -y install ntp tar wget git telnet vim voms-clients-cpp fetch-crl ca_CERN-GridCA-1.92-1.noarch
+           yum -y install sshpass
+
+           cat >> /etc/sysctl.conf << EOF
+           net.ipv6.conf.all.disable_ipv6 = 1
+           net.ipv6.conf.default.disable_ipv6 = 1
+           EOF
+
+           cat >> /etc/bashrc << EOF
+           export JAVA_HOME=/opt/jdk
+           export JRE_HOME=/opt/jdk/jre
+           export PATH=$PATH:/opt/jdk/bin:/opt/jdk/jre/bin
+           EOF
+
+           chmod 777 /opt/
+           source /etc/bashrc
+
+           cd /opt
+
+           wget --no-cookies --no-check-certificate --header "Cookie: gpw_e24=http%3A%2F%2Fwww.oracle.com%2F; oraclelicense=accept-securebackup-cookie" "http://download.oracle.com/otn-pub/java/jdk/8u171-b11/512cd62ec5174c3487ac17c61aaa89e8/jdk-8u171-linux-x64.tar.gz"
+           tar -zxf /opt/jdk-8u171-linux-x64.tar.gz
+           ln -s jdk1.8.0_171 jdk 
+
+           wget http://www.eu.apache.org/dist/hadoop/common/hadoop-2.7.6/hadoop-2.7.6.tar.gz
+           tar -xzvf hadoop-2.7.6.tar.gz
+           ln -s hadoop-2.7.6 hadoop
+
+           wget https://www.apache.org/dist/spark/spark-2.3.0/spark-2.3.0-bin-hadoop2.7.tgz
+           tar -zxf  spark-2.3.0-bin-hadoop2.7.tgz
+
+           cat > /opt/spark-2.3.0-bin-hadoop2.7/conf/spark-env.sh << EOF
+           #!/usr/bin/env bash
+
+           export LD_LIBRARY_PATH=/opt/hadoop/lib/native/:\$LD_LIBRARY_PATH
+
+           export JAVA_OPTS_ERROR_HANDLING="-XX:ErrorFile=/tmp/spark-shell-hs_err_pid.log \
+           -XX:HeapDumpPath=/tmp/spark-shell-java_pid.hprof \
+           -XX:-HeapDumpOnOutOfMemoryError"
+
+           export JAVA_OPTS_GC="-XX:-PrintGC -XX:-PrintGCDetails \
+           -XX:-PrintGCTimeStamps \
+           -XX:-PrintTenuringDistribution \
+           -XX:-PrintAdaptiveSizePolicy \
+           -XX:GCLogFileSize=1024K \
+           -XX:-UseGCLogFileRotation \
+           -Xloggc:/tmp/spark-shell-gc.log \
+           -XX:+UseConcMarkSweepGC"
+
+           export JAVA_OPTS="$JAVA_OPTS_ERROR_HANDLING $JAVA_OPTS_GC"
+
+           export HADOOP_HOME="/opt/hadoop"
+           export HADOOP_CONF_DIR="\$HADOOP_HOME/etc/hadoop"
+           export HDFS_URL=" "
+           export SPARK_YARN_USER_ENV="JAVA_HOME=/opt/jdk"
+
+           export MASTER="yarn-client"
+           export SPARK_LOCAL_IP=$IP_FIX_NODE5
+           export SPARK_EXECUTOR_HOME="/opt/spark-2.3.0-bin-hadoop2.7"
+           export YARN_APPLICATION_CLASSPATH="log4j.properties"
+
+           export SPARK_MASTER_OPTS="-Dspark.deploy.defaultCores=4 -Dspark.driver.memory=2g"
+           export SPARK_MASTER_MEMORY="1500M"
+           export SPARK_DRIVER_MEMORY="1500M"
+           export SPARK_WORKER_MEMORY="3000M"
+           export SPARK_EXECUTOR_MEMORY="1000M"
+           EOF
+
+           ############### 
+           mkdir -p /etc/vomses
+
+           cat > /etc/vomses/cms-lcg-voms2.cern.ch << EOF 
+           "cms" "lcg-voms2.cern.ch" "15002" "/DC=ch/DC=cern/OU=computers/CN=lcg-voms2.cern.ch" "cms" "24
+           EOF
+
+           cat > /etc/vomses/cms-voms2.cern.ch << EOF 
+           "cms" "voms2.cern.ch" "15002" "/DC=ch/DC=cern/OU=computers/CN=voms2.cern.ch" "cms" "24"
+           EOF
+
+           mkdir -p /etc/grid-security/vomsdir/cms
+
+           cat > /etc/grid-security/vomsdir/cms/lcg-voms2.cern.ch.lsc << EOF
+           /DC=ch/DC=cern/OU=computers/CN=lcg-voms2.cern.ch
+           /DC=ch/DC=cern/CN=CERN Grid Certification Authority
+           EOF
+
+           cat > /etc/grid-security/vomsdir/cms/lcg-voms.cern.ch.lsc << EOF
+           /DC=ch/DC=cern/OU=computers/CN=lcg-voms.cern.ch
+           /DC=ch/DC=cern/CN=CERN Grid Certification Authority
+           EOF
+
+           cat > /etc/grid-security/vomsdir/cms/voms2.cern.ch.lsc << EOF
+           /DC=ch/DC=cern/OU=computers/CN=voms2.cern.ch
+           /DC=ch/DC=cern/CN=CERN Grid Certification Authority
+           EOF
+
+           cat > /etc/grid-security/vomsdir/cms/voms.cern.ch.lsc << EOF
+           /DC=ch/DC=cern/OU=computers/CN=voms.cern.ch
+           /DC=ch/DC=cern/CN=CERN Grid Certification Authority
+           EOF
+           ############## 
+
+           #source /opt/spark-2.3.0-bin-hadoop2.7/conf/spark-env.sh; /opt/spark-2.3.0-bin-hadoop2.7/sbin/start-slave.sh spark://$IP_FIX_NODE1:7077
+          params:
+            $ROOT_PW: {get_resource: root_pw}
+            $IP_FIX_NODE1: {get_param: fixed_ip_nodo_1}
+            $IP_FIX_NODE2: {get_param: fixed_ip_nodo_2}
+            $IP_FIX_NODE3: {get_param: fixed_ip_nodo_3}
+            $IP_FIX_NODE4: {get_param: fixed_ip_nodo_4}
+            $IP_FIX_NODE5: {get_param: fixed_ip_nodo_5}
+            $IP_FIX_NODE6: {get_param: fixed_ip_nodo_6}
+
+  nodo6_server_instance:
+    type: OS::Nova::Server
+    #depends_on: nodo1_instance_wait
+    properties:
+      name: "nodo6"
+      key_name: { get_param: key_name_user }
+      image: { get_param: image_to_use }
+      flavor: { get_param: flavor_to_use }
+      networks:
+        - port: { get_resource: nodo6_server_port }
+      user_data_format: RAW
+      user_data:
+        str_replace:
+          template: |
+           #!/bin/bash
+           echo -n root:$ROOT_PW | chpasswd
+           sed -i s/"PermitRootLogin without-password$"/"PermitRootLogin yes"/ /etc/ssh/sshd_config
+           sed -i s/"PasswordAuthentication no$"/"PasswordAuthentication yes"/ /etc/ssh/sshd_config
+           service sshd restart
+           cat > /etc/hosts << EOF
+           $IP_FIX_NODE1    nodo1.novalocal nodo1
+           $IP_FIX_NODE2    nodo2.novalocal nodo2
+           $IP_FIX_NODE3    nodo3.novalocal nodo3
+           $IP_FIX_NODE4    nodo4.novalocal nodo4
+           $IP_FIX_NODE5    nodo5.novalocal nodo5
+           $IP_FIX_NODE6    nodo6.novalocal nodo6
+           127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+           ::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+           EOF
+           sed -i 0,/'requiretty'/{s/'requiretty'/'!requiretty'/} /etc/sudoers
+
+           #yum update
+
+           cat > /etc/hostname  << EOF
+           nodo6.novalocal nodo6
+           EOF
+
+           yum -y install http://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+
+           cat <<EOF > /etc/yum.repos.d/carepo.repo
+           [carepo]
+           name=IGTF CA Repository
+           baseurl=http://linuxsoft.cern.ch/mirror/repository.egi.eu/sw/production/cas/1/current/
+           enabled=1
+           gpgcheck=0
+           EOF
+
+           yum -y install ntp tar wget git telnet vim voms-clients-cpp fetch-crl ca_CERN-GridCA-1.92-1.noarch
+           yum -y install sshpass
+
+           cat >> /etc/sysctl.conf << EOF
+           net.ipv6.conf.all.disable_ipv6 = 1
+           net.ipv6.conf.default.disable_ipv6 = 1
+           EOF
+
+           cat >> /etc/bashrc << EOF
+           export JAVA_HOME=/opt/jdk
+           export JRE_HOME=/opt/jdk/jre
+           export PATH=$PATH:/opt/jdk/bin:/opt/jdk/jre/bin
+           EOF
+
+           chmod 777 /opt/
+           source /etc/bashrc
+
+           cd /opt
+
+           wget --no-cookies --no-check-certificate --header "Cookie: gpw_e24=http%3A%2F%2Fwww.oracle.com%2F; oraclelicense=accept-securebackup-cookie" "http://download.oracle.com/otn-pub/java/jdk/8u171-b11/512cd62ec5174c3487ac17c61aaa89e8/jdk-8u171-linux-x64.tar.gz"
+           tar -zxf /opt/jdk-8u171-linux-x64.tar.gz
+           ln -s jdk1.8.0_171 jdk 
+
+           wget http://www.eu.apache.org/dist/hadoop/common/hadoop-2.7.6/hadoop-2.7.6.tar.gz
+           tar -xzvf hadoop-2.7.6.tar.gz
+           ln -s hadoop-2.7.6 hadoop
+
+           wget https://www.apache.org/dist/spark/spark-2.3.0/spark-2.3.0-bin-hadoop2.7.tgz
+           tar -zxf  spark-2.3.0-bin-hadoop2.7.tgz
+
+           cat > /opt/spark-2.3.0-bin-hadoop2.7/conf/spark-env.sh << EOF
+           #!/usr/bin/env bash
+
+           export LD_LIBRARY_PATH=/opt/hadoop/lib/native/:\$LD_LIBRARY_PATH
+
+           export JAVA_OPTS_ERROR_HANDLING="-XX:ErrorFile=/tmp/spark-shell-hs_err_pid.log \
+           -XX:HeapDumpPath=/tmp/spark-shell-java_pid.hprof \
+           -XX:-HeapDumpOnOutOfMemoryError"
+
+           export JAVA_OPTS_GC="-XX:-PrintGC -XX:-PrintGCDetails \
+           -XX:-PrintGCTimeStamps \
+           -XX:-PrintTenuringDistribution \
+           -XX:-PrintAdaptiveSizePolicy \
+           -XX:GCLogFileSize=1024K \
+           -XX:-UseGCLogFileRotation \
+           -Xloggc:/tmp/spark-shell-gc.log \
+           -XX:+UseConcMarkSweepGC"
+
+           export JAVA_OPTS="$JAVA_OPTS_ERROR_HANDLING $JAVA_OPTS_GC"
+
+           export HADOOP_HOME="/opt/hadoop"
+           export HADOOP_CONF_DIR="\$HADOOP_HOME/etc/hadoop"
+           export HDFS_URL=" "
+           export SPARK_YARN_USER_ENV="JAVA_HOME=/opt/jdk"
+
+           export MASTER="yarn-client"
+           export SPARK_LOCAL_IP=$IP_FIX_NODE6
+           export SPARK_EXECUTOR_HOME="/opt/spark-2.3.0-bin-hadoop2.7"
+           export YARN_APPLICATION_CLASSPATH="log4j.properties"
+
+           export SPARK_MASTER_OPTS="-Dspark.deploy.defaultCores=4 -Dspark.driver.memory=2g"
+           export SPARK_MASTER_MEMORY="1500M"
+           export SPARK_DRIVER_MEMORY="1500M"
+           export SPARK_WORKER_MEMORY="3000M"
+           export SPARK_EXECUTOR_MEMORY="1000M"
+           EOF
+
+           #############
+
+           mkdir -p /etc/vomses
+
+           cat > /etc/vomses/cms-lcg-voms2.cern.ch << EOF 
+           "cms" "lcg-voms2.cern.ch" "15002" "/DC=ch/DC=cern/OU=computers/CN=lcg-voms2.cern.ch" "cms" "24
+           EOF
+
+           cat > /etc/vomses/cms-voms2.cern.ch << EOF 
+           "cms" "voms2.cern.ch" "15002" "/DC=ch/DC=cern/OU=computers/CN=voms2.cern.ch" "cms" "24"
+           EOF
+
+           mkdir -p /etc/grid-security/vomsdir/cms
+
+           cat > /etc/grid-security/vomsdir/cms/lcg-voms2.cern.ch.lsc << EOF
+           /DC=ch/DC=cern/OU=computers/CN=lcg-voms2.cern.ch
+           /DC=ch/DC=cern/CN=CERN Grid Certification Authority
+           EOF
+
+           cat > /etc/grid-security/vomsdir/cms/lcg-voms.cern.ch.lsc << EOF
+           /DC=ch/DC=cern/OU=computers/CN=lcg-voms.cern.ch
+           /DC=ch/DC=cern/CN=CERN Grid Certification Authority
+           EOF
+
+           cat > /etc/grid-security/vomsdir/cms/voms2.cern.ch.lsc << EOF
+           /DC=ch/DC=cern/OU=computers/CN=voms2.cern.ch
+           /DC=ch/DC=cern/CN=CERN Grid Certification Authority
+           EOF
+
+           cat > /etc/grid-security/vomsdir/cms/voms.cern.ch.lsc << EOF
+           /DC=ch/DC=cern/OU=computers/CN=voms.cern.ch
+           /DC=ch/DC=cern/CN=CERN Grid Certification Authority
+           EOF
+           ############## 
+
+           #source /opt/spark-2.3.0-bin-hadoop2.7/conf/spark-env.sh; /opt/spark-2.3.0-bin-hadoop2.7/sbin/start-slave.sh spark://$IP_FIX_NODE1:7077
+          params:
+            $ROOT_PW: {get_resource: root_pw}
+            $IP_FIX_NODE1: {get_param: fixed_ip_nodo_1}
+            $IP_FIX_NODE2: {get_param: fixed_ip_nodo_2}
+            $IP_FIX_NODE3: {get_param: fixed_ip_nodo_3}
+            $IP_FIX_NODE4: {get_param: fixed_ip_nodo_4}
+            $IP_FIX_NODE5: {get_param: fixed_ip_nodo_5}
+            $IP_FIX_NODE6: {get_param: fixed_ip_nodo_6}
+
+  nodo6_server_port:
+    type: OS::Neutron::Port
+    properties:
+      name: "nodo6-server-port"
+      network_id: { get_param: tenant_net_name }
+      fixed_ips:
+        - { ip_address: { get_param: fixed_ip_nodo_6 }, subnet: { get_param: tenant_subnet_name } }
+      security_groups: [{Ref: secgroup-bigdata_secgroup},]
+
+outputs:
+  root_pw:
+    description: root pwd to access to all VMs in spark cluster
+    value: {get_resource: root_pw}

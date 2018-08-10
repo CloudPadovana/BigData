@@ -19,7 +19,7 @@ parameters:
     type: string
     label: Public ssh key of one user.
     description: Public ssh key of one user.
-    default: pub
+    default: mbuto-desktop
 
   tenant_net_name:
     type: string
@@ -32,6 +32,12 @@ parameters:
     label: Sub network of the tenant
     description: This parameter has been set with the name of the tenant sub network. If you have more than one choose one of thoose.
     default: "sub-SMACT-lan"
+
+  avail_zone:
+    type: string
+    label: Availability Zone
+    description: Availability Zone for the cluster
+    default: "nova"
 
   net_domain:
     type: string
@@ -101,15 +107,18 @@ resources:
   node1_server_instance:
     type: OS::Nova::Server
     properties:
-      name: "$HOST_PRE-01"
+      name:  
+        str_replace:
+            template: "$HOST_PRE-01"
+            params:
+                $HOST_PRE: { get_param: net_host_prefix }
       key_name: { get_param: key_name_user }
       image: { get_param: image_to_use } 
       flavor: { get_param: flavor_to_use }
       admin_pass: { get_resource: root_pw }
-      availability_zone: { "nova" }
+      availability_zone: { get_param: avail_zone }
       networks:
         - port: { get_resource: node1_server_port }
-        - fixed_ip: { get_param: fixed_ip_node_1 }
       user_data_format: RAW
       user_data:
         str_replace:
@@ -207,18 +216,21 @@ resources:
         - { ip_address: { get_param: fixed_ip_node_2 }, subnet: { get_param: tenant_subnet_name } }
       security_groups: [{Ref: secgroup-kafka_secgroup},]
 
-  node1_server_instance:
+  node2_server_instance:
     type: OS::Nova::Server
     properties:
-      name: "$HOST_PRE-02"
+      name:  
+        str_replace:
+            template: "$HOST_PRE-02"
+            params:
+                $HOST_PRE: { get_param: net_host_prefix }
       key_name: { get_param: key_name_user }
       image: { get_param: image_to_use } 
       flavor: { get_param: flavor_to_use }
       admin_pass: { get_resource: root_pw }
-      availability_zone: { "nova" }
+      availability_zone: { get_param: avail_zone }
       networks:
-        - port: { get_resource: node1_server_port }
-        - fixed_ip: { get_param: fixed_ip_node_2 }
+        - port: { get_resource: node2_server_port }
       user_data_format: RAW
       user_data:
         str_replace:
@@ -316,18 +328,21 @@ resources:
         - { ip_address: { get_param: fixed_ip_node_3 }, subnet: { get_param: tenant_subnet_name } }
       security_groups: [{Ref: secgroup-kafka_secgroup},]
 
-  node1_server_instance:
+  node3_server_instance:
     type: OS::Nova::Server
     properties:
-      name: "$HOST_PRE-03"
+      name:  
+        str_replace:
+            template: "$HOST_PRE-03"
+            params:
+                $HOST_PRE: { get_param: net_host_prefix }
       key_name: { get_param: key_name_user }
       image: { get_param: image_to_use } 
       flavor: { get_param: flavor_to_use }
       admin_pass: { get_resource: root_pw }
-      availability_zone: { "nova" }
+      availability_zone: { get_param: avail_zone }
       networks:
-        - port: { get_resource: node1_server_port }
-        - fixed_ip: { get_param: fixed_ip_node_3 }
+        - port: { get_resource: node3_server_port }
       user_data_format: RAW
       user_data:
         str_replace:

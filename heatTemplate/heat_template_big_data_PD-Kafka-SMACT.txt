@@ -67,7 +67,7 @@ parameters:
     type: string
     label: Fixed ip for node3 host
     description: Fixed ip for node3 host
-    default: "10.64.48.23"
+    default: "10.64.48.22"
 
   nameserver_1:
     type: string
@@ -88,12 +88,17 @@ resources:
    properties:
       length: 8 
 
-  secgroup-kafka_secgroup:
+  secgroup-kafka_sg:
     type: OS::Neutron::SecurityGroup
     properties:
-      description: "Access to zookeeper and kafka connections for all VM in this security group"
+      description: "Access to zookeeper and kafka services for all VM in this security group"
       name: "secgroup-kafka"
-      rules: [{"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 9092, "port_range_max": 9092, "remote_mode": remote_ip_prefix, "protocol": TCP}, {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 2181, "port_range_max": 2181, "remote_mode": remote_ip_prefix, "protocol": TCP}]
+      rules: [
+        {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 22, "remote_mode": remote_ip_prefix, "port_range_max": 22, "protocol": TCP},
+        {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "remote_mode": remote_ip_prefix, "protocol": ICMP},
+        {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 9092, "port_range_max": 9092, "remote_mode": remote_ip_prefix, "protocol": TCP}, 
+        {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 2181, "port_range_max": 2181, "remote_mode": remote_ip_prefix, "protocol": TCP}
+      ]
 
   node1_server_port:
     type: OS::Neutron::Port
@@ -102,7 +107,7 @@ resources:
       network_id: { get_param: tenant_net_name }
       fixed_ips:
         - { ip_address: { get_param: fixed_ip_node_1 }, subnet: { get_param: tenant_subnet_name } }
-      security_groups: [{Ref: secgroup-kafka_secgroup},]
+      security_groups: [{Ref: secgroup-kafka_sg},]
 
   node1_server_instance:
     type: OS::Nova::Server
@@ -214,7 +219,7 @@ resources:
       network_id: { get_param: tenant_net_name }
       fixed_ips:
         - { ip_address: { get_param: fixed_ip_node_2 }, subnet: { get_param: tenant_subnet_name } }
-      security_groups: [{Ref: secgroup-kafka_secgroup},]
+      security_groups: [{Ref: secgroup-kafka_sg},]
 
   node2_server_instance:
     type: OS::Nova::Server
@@ -326,7 +331,7 @@ resources:
       network_id: { get_param: tenant_net_name }
       fixed_ips:
         - { ip_address: { get_param: fixed_ip_node_3 }, subnet: { get_param: tenant_subnet_name } }
-      security_groups: [{Ref: secgroup-kafka_secgroup},]
+      security_groups: [{Ref: secgroup-kafka_sg},]
 
   node3_server_instance:
     type: OS::Nova::Server

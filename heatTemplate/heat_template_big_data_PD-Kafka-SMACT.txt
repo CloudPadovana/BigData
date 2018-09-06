@@ -147,7 +147,10 @@ resources:
             wget -O /tmp/kafka_2.11-1.1.0.tgz https://archive.apache.org/dist/kafka/1.1.0/kafka_2.11-1.1.0.tgz
             tar -C /opt -zxf /tmp/kafka_2.11-1.1.0.tgz
             mv /opt/kafka_2.11-1.1.0 /opt/kafka
-            mkdir -p /var/lib/kafka/kafka-logs /var/cache/zookeeper
+            adduser kafka
+            mkdir -p /var/lib/kafka/kafka-logs /var/cache/zookeeper /opt/kafka/log
+            chown kafka.kafka /var/lib/kafka/kafka-logs /var/cache/zookeeper /opt/kafka/log
+            ln -s /opt/kafka/log /var/log/kafka
             cat > /opt/kafka/config/server.properties << EOF
             broker.id=$HOST_NUMBER
             num.network.threads=3
@@ -184,8 +187,8 @@ resources:
             Description=Zookeeper service
 
             [Service]
-            ExecStart=/opt/kafka/bin/zookeeper-server-start.sh /opt/kafka/config/zookeeper.properties
-            ExecStop=/opt/kafka/bin/zookeeper-server-stop.sh
+            ExecStart=/usr/sbin/runuser -s /bin/bash -c "/opt/kafka/bin/zookeeper-server-start.sh /opt/kafka/config/zookeeper.properties" -- kafka
+            ExecStop=/usr/sbin/runuser -s /bin/bash -c "/opt/kafka/bin/zookeeper-server-stop.sh" -- kafka
 
             [Install]
             WantedBy=multi-user.target
@@ -197,8 +200,8 @@ resources:
             After=zookeeper.service
 
             [Service]
-            ExecStart=/opt/kafka/bin/kafka-server-start.sh /opt/kafka/config/server.properties
-            ExecStop=/opt/kafka/bin/kafka-server-start.sh
+            ExecStart=/usr/sbin/runuser -s /bin/bash -c "/opt/kafka/bin/kafka-server-start.sh /opt/kafka/config/server.properties" -- kafka
+            ExecStop=/usr/sbin/runuser -s /bin/bash -c "/opt/kafka/bin/kafka-server-start.sh" -- kafka
 
             [Install]
             WantedBy=multi-user.target
@@ -260,7 +263,10 @@ resources:
             wget -O /tmp/kafka_2.11-1.1.0.tgz https://archive.apache.org/dist/kafka/1.1.0/kafka_2.11-1.1.0.tgz
             tar -C /opt -zxf /tmp/kafka_2.11-1.1.0.tgz
             mv /opt/kafka_2.11-1.1.0 /opt/kafka
-            mkdir -p /var/lib/kafka/kafka-logs /var/cache/zookeeper
+            adduser kafka
+            mkdir -p /var/lib/kafka/kafka-logs /var/cache/zookeeper /opt/kafka/log
+            chown kafka.kafka /var/lib/kafka/kafka-logs /var/cache/zookeeper /opt/kafka/log
+            ln -s /opt/kafka/log /var/log/kafka
             cat > /opt/kafka/config/server.properties << EOF
             broker.id=$HOST_NUMBER
             num.network.threads=3
@@ -297,8 +303,8 @@ resources:
             Description=Zookeeper service
 
             [Service]
-            ExecStart=/opt/kafka/bin/zookeeper-server-start.sh /opt/kafka/config/zookeeper.properties
-            ExecStop=/opt/kafka/bin/zookeeper-server-stop.sh
+            ExecStart=/usr/sbin/runuser -s /bin/bash -c "/opt/kafka/bin/zookeeper-server-start.sh /opt/kafka/config/zookeeper.properties" -- kafka
+            ExecStop=/usr/sbin/runuser -s /bin/bash -c "/opt/kafka/bin/zookeeper-server-stop.sh" -- kafka
 
             [Install]
             WantedBy=multi-user.target
@@ -310,8 +316,8 @@ resources:
             After=zookeeper.service
 
             [Service]
-            ExecStart=/opt/kafka/bin/kafka-server-start.sh /opt/kafka/config/server.properties
-            ExecStop=/opt/kafka/bin/kafka-server-start.sh
+            ExecStart=/usr/sbin/runuser -s /bin/bash -c "/opt/kafka/bin/kafka-server-start.sh /opt/kafka/config/server.properties" -- kafka
+            ExecStop=/usr/sbin/runuser -s /bin/bash -c "/opt/kafka/bin/kafka-server-start.sh" -- kafka
 
             [Install]
             WantedBy=multi-user.target
@@ -373,7 +379,10 @@ resources:
             wget -O /tmp/kafka_2.11-1.1.0.tgz https://archive.apache.org/dist/kafka/1.1.0/kafka_2.11-1.1.0.tgz
             tar -C /opt -zxf /tmp/kafka_2.11-1.1.0.tgz
             mv /opt/kafka_2.11-1.1.0 /opt/kafka
-            mkdir -p /var/lib/kafka/kafka-logs /var/cache/zookeeper
+            adduser kafka
+            mkdir -p /var/lib/kafka/kafka-logs /var/cache/zookeeper /opt/kafka/log
+            chown kafka.kafka /var/lib/kafka/kafka-logs /var/cache/zookeeper /opt/kafka/log
+            ln -s /opt/kafka/log /var/log/kafka
             cat > /opt/kafka/config/server.properties << EOF
             broker.id=$HOST_NUMBER
             num.network.threads=3
@@ -410,8 +419,8 @@ resources:
             Description=Zookeeper service
 
             [Service]
-            ExecStart=/opt/kafka/bin/zookeeper-server-start.sh /opt/kafka/config/zookeeper.properties
-            ExecStop=/opt/kafka/bin/zookeeper-server-stop.sh
+            ExecStart=/usr/sbin/runuser -s /bin/bash -c "/opt/kafka/bin/zookeeper-server-start.sh /opt/kafka/config/zookeeper.properties" -- kafka
+            ExecStop=/usr/sbin/runuser -s /bin/bash -c "/opt/kafka/bin/zookeeper-server-stop.sh" -- kafka
 
             [Install]
             WantedBy=multi-user.target
@@ -423,8 +432,8 @@ resources:
             After=zookeeper.service
 
             [Service]
-            ExecStart=/opt/kafka/bin/kafka-server-start.sh /opt/kafka/config/server.properties
-            ExecStop=/opt/kafka/bin/kafka-server-start.sh
+            ExecStart=/usr/sbin/runuser -s /bin/bash -c "/opt/kafka/bin/kafka-server-start.sh /opt/kafka/config/server.properties" -- kafka
+            ExecStop=/usr/sbin/runuser -s /bin/bash -c "/opt/kafka/bin/kafka-server-start.sh" -- kafka
 
             [Install]
             WantedBy=multi-user.target

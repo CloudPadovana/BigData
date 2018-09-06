@@ -148,9 +148,9 @@ resources:
             tar -C /opt -zxf /tmp/kafka_2.11-1.1.0.tgz
             mv /opt/kafka_2.11-1.1.0 /opt/kafka
             adduser kafka
-            mkdir -p /var/lib/kafka/kafka-logs /var/cache/zookeeper /opt/kafka/log
-            chown kafka.kafka /var/lib/kafka/kafka-logs /var/cache/zookeeper /opt/kafka/log
-            ln -s /opt/kafka/log /var/log/kafka
+            mkdir -p /var/lib/kafka/kafka-logs /var/cache/zookeeper /var/log/kafka
+            chown kafka.kafka /var/lib/kafka/kafka-logs /var/cache/zookeeper /var/log/kafka
+            ln -s /var/log/kafka /opt/kafka/log
             cat > /opt/kafka/config/server.properties << EOF
             broker.id=$HOST_NUMBER
             num.network.threads=3
@@ -264,9 +264,9 @@ resources:
             tar -C /opt -zxf /tmp/kafka_2.11-1.1.0.tgz
             mv /opt/kafka_2.11-1.1.0 /opt/kafka
             adduser kafka
-            mkdir -p /var/lib/kafka/kafka-logs /var/cache/zookeeper /opt/kafka/log
-            chown kafka.kafka /var/lib/kafka/kafka-logs /var/cache/zookeeper /opt/kafka/log
-            ln -s /opt/kafka/log /var/log/kafka
+            mkdir -p /var/lib/kafka/kafka-logs /var/cache/zookeeper /var/log/kafka
+            chown kafka.kafka /var/lib/kafka/kafka-logs /var/cache/zookeeper /var/log/kafka
+            ln -s /var/log/kafka /opt/kafka/log
             cat > /opt/kafka/config/server.properties << EOF
             broker.id=$HOST_NUMBER
             num.network.threads=3
@@ -380,9 +380,9 @@ resources:
             tar -C /opt -zxf /tmp/kafka_2.11-1.1.0.tgz
             mv /opt/kafka_2.11-1.1.0 /opt/kafka
             adduser kafka
-            mkdir -p /var/lib/kafka/kafka-logs /var/cache/zookeeper /opt/kafka/log
-            chown kafka.kafka /var/lib/kafka/kafka-logs /var/cache/zookeeper /opt/kafka/log
-            ln -s /opt/kafka/log /var/log/kafka
+            mkdir -p /var/lib/kafka/kafka-logs /var/cache/zookeeper /var/log/kafka
+            chown kafka.kafka /var/lib/kafka/kafka-logs /var/cache/zookeeper /var/log/kafka
+            ln -s /var/log/kafka /opt/kafka/log
             cat > /opt/kafka/config/server.properties << EOF
             broker.id=$HOST_NUMBER
             num.network.threads=3

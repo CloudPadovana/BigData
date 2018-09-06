@@ -97,6 +97,8 @@ resources:
         {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 22, "remote_mode": remote_ip_prefix, "port_range_max": 22, "protocol": TCP},
         {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "remote_mode": remote_ip_prefix, "protocol": ICMP},
         {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 9092, "port_range_max": 9092, "remote_mode": remote_ip_prefix, "protocol": TCP}, 
+        {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 2888, "port_range_max": 2888, "remote_mode": remote_ip_prefix, "protocol": TCP},
+        {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 3888, "port_range_max": 3888, "remote_mode": remote_ip_prefix, "protocol": TCP},
         {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 2181, "port_range_max": 2181, "remote_mode": remote_ip_prefix, "protocol": TCP}
       ]
 
@@ -201,6 +203,7 @@ resources:
             [Install]
             WantedBy=multi-user.target
             EOF
+            echo "export PATH=$PATH:/opt/kafka/bin/" >> /etc/bashrc
             systemctl enable zookeeper kafka
           params:
             $IP_FIX_NODE1: { get_param: fixed_ip_node_1 }
@@ -313,6 +316,7 @@ resources:
             [Install]
             WantedBy=multi-user.target
             EOF
+            echo "export PATH=$PATH:/opt/kafka/bin/" >> /etc/bashrc
             systemctl enable zookeeper kafka
           params:
             $IP_FIX_NODE1: { get_param: fixed_ip_node_1 }
@@ -425,6 +429,7 @@ resources:
             [Install]
             WantedBy=multi-user.target
             EOF
+            echo "export PATH=$PATH:/opt/kafka/bin/" >> /etc/bashrc
             systemctl enable zookeeper kafka
           params:
             $IP_FIX_NODE1: { get_param: fixed_ip_node_1 }

@@ -108,6 +108,7 @@ resources:
         {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 2888, "remote_mode": remote_ip_prefix, "port_range_max": 2888, "protocol": TCP},
         {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 3888, "remote_mode": remote_ip_prefix, "port_range_max": 3888, "protocol": TCP},
         {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 9000, "remote_mode": remote_ip_prefix, "port_range_max": 9000, "protocol": TCP},
+        {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 50010, "remote_mode": remote_ip_prefix, "port_range_max": 50090, "protocol": TCP},
         {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "remote_mode": remote_ip_prefix, "protocol": ICMP}
       ]
 
@@ -241,6 +242,10 @@ resources:
                 <name>dfs.namenode.name.dir</name>
                 <value>/home/hadoop/namenode</value>
               </property>
+              <property>
+                <name>dfs.secondary.http.address</name>
+                <value>$IP_FIX_NODE1:50090</value>
+              </property>
             </configuration>
             EOF
             cat > /opt/hadoop/etc/hadoop/mapred-site.xml << EOF
@@ -268,8 +273,8 @@ resources:
             </configuration>
             EOF
             cat > /opt/hadoop/etc/hadoop/slaves << EOF
-            $HOST_PRE-02
-            $HOST_PRE-03
+            $HOST_PRE-02.$S_DOMAIN.pd.infn.it
+            $HOST_PRE-03.$S_DOMAIN.pd.infn.it
             EOF
           params:
             $IP_FIX_NODE1: { get_param: fixed_ip_node_1 }
@@ -417,6 +422,10 @@ resources:
                 <name>dfs.namenode.name.dir</name>
                 <value>/home/hadoop/namenode</value>
               </property>
+              <property>
+                <name>dfs.secondary.http.address</name>
+                <value>$IP_FIX_NODE1:50090</value>
+              </property>
             </configuration>
             EOF
             cat > /opt/hadoop/etc/hadoop/mapred-site.xml << EOF
@@ -444,8 +453,8 @@ resources:
             </configuration>
             EOF
             cat > /opt/hadoop/etc/hadoop/slaves << EOF
-            $HOST_PRE-02
-            $HOST_PRE-03
+            $HOST_PRE-02.$S_DOMAIN.pd.infn.it
+            $HOST_PRE-03.$S_DOMAIN.pd.infn.it
             EOF
           params:
             $IP_FIX_NODE1: { get_param: fixed_ip_node_1 }
@@ -591,6 +600,10 @@ resources:
                 <name>dfs.namenode.name.dir</name>
                 <value>/home/hadoop/namenode</value>
               </property>
+              <property>
+                <name>dfs.secondary.http.address</name>
+                <value>$IP_FIX_NODE1:50090</value>
+              </property>
             </configuration>
             EOF
             cat > /opt/hadoop/etc/hadoop/mapred-site.xml << EOF
@@ -618,8 +631,8 @@ resources:
             </configuration>
             EOF
             cat > /opt/hadoop/etc/hadoop/slaves << EOF
-            $HOST_PRE-02
-            $HOST_PRE-03
+            $HOST_PRE-02.$S_DOMAIN.pd.infn.it
+            $HOST_PRE-03.$S_DOMAIN.pd.infn.it
             EOF
           params:
             $IP_FIX_NODE1: { get_param: fixed_ip_node_1 }

@@ -98,7 +98,7 @@ resources:
     type: OS::Neutron::SecurityGroup
     properties:
       description: "Access to ssh, ping, mesos, marathon, chronos connections for all VM in this security group"
-      name: "sshPingBigdata"
+      name: "secgroup-impala"
       rules: [
         {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 22, "remote_mode": remote_ip_prefix, "port_range_max": 22, "protocol": TCP},
         {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 5050, "remote_mode": remote_ip_prefix, "port_range_max": 5050, "protocol": TCP},

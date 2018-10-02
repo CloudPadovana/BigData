@@ -1,0 +1,182 @@
+heat_template_version: 2017-02-24
+description: Complete stack for big data analytics
+
+parameters:
+    
+  image_to_use:
+    type: string
+    label: Image name or ID
+    description: Image used for all nodes in the kafka cluster (CentOS7)
+    default: fb2906c4-56a1-45a1-9041-485716cb7016 
+
+  flavor_to_use:
+    type: string
+    label: Flavor name 
+    description: Flavor used for all nodes in the kafka cluster
+    default: cldareapd.small
+
+  key_name_user:
+    type: string
+    label: Public ssh key of one user.
+    description: Public ssh key of one user.
+    default: mbuto-desktop
+
+  tenant_net_name:
+    type: string
+    label: Network ID of the tenant
+    description: This parameter has been set with the id of the tenant network (SMACT-lan id)
+    default: d68e615a-7716-4e95-a413-492339300b58
+
+  tenant_subnet_name:
+    type: string
+    label: Sub network of the tenant
+    description: This parameter has been set with the name of the tenant sub network. If you have more than one choose one of thoose.
+    default: "sub-SMACT-lan"
+
+  avail_zone:
+    type: string
+    label: Availability Zone
+    description: Availability Zone for the cluster
+    default: "nova"
+
+  net_domain:
+    type: string
+    label: Sub-domain for the cluster installation
+    description: Sub-domain for the cluster installation.
+    default: "smact"
+
+  net_host_prefix:
+    type: string
+    label: Prefix for the hostname of the cluster nodes
+    description: Prefix for the hostname of the cluster nodes.
+    default: "kafka-test"
+
+  fixed_ip_node_1:
+    type: string
+    label: Fixed ip for node1 host
+    description: Fixed ip for node1 host
+    default: "10.64.48.20"
+
+  fixed_ip_node_2:
+    type: string
+    label: Fixed ip for node2 host
+    description: Fixed ip for node2 host
+    default: "10.64.48.21"
+
+  fixed_ip_node_3:
+    type: string
+    label: Fixed ip for node3 host
+    description: Fixed ip for node3 host
+    default: "10.64.48.22"
+
+  nameserver_1:
+    type: string
+    label: First name server ip
+    description: First name server ip
+    default: "192.84.143.31"
+
+  nameserver_2:
+    type: string
+    label: Second name server ip
+    description: Second name server ip
+    default: "192.84.143.16"
+
+resources:
+  
+  root_pw:
+   type: OS::Heat::RandomString
+   properties:
+      length: 8 
+
+  hadoop_pw:
+   type: OS::Heat::RandomString
+   properties:
+      length: 8
+
+  secgroup_bigstack_sg:
+    type: OS::Neutron::SecurityGroup
+    properties:
+      description: "Access to big data stack services for all VM in this security group"
+      name: "secgroup-bigdata-stack"
+      rules: [
+        {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 22, "port_range_max": 22, "remote_mode": remote_ip_prefix, "protocol": TCP},
+        {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 5050, "port_range_max": 5050, "remote_mode": remote_ip_prefix, "protocol": TCP},
+        {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 8080, "port_range_max": 8080, "remote_mode": remote_ip_prefix, "protocol": TCP},
+        {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 8443, "port_range_max": 8443, "remote_mode": remote_ip_prefix, "protocol": TCP},
+        {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 4400, "port_range_max": 4400, "remote_mode": remote_ip_prefix, "protocol": TCP}, 
+        {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 2181, "port_range_max": 2181, "remote_mode": remote_ip_prefix, "protocol": TCP}, 
+        {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 2888, "port_range_max": 2888, "remote_mode": remote_ip_prefix, "protocol": TCP},
+        {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 3888, "port_range_max": 3888, "remote_mode": remote_ip_prefix, "protocol": TCP},
+        {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 9000, "port_range_max": 9000, "remote_mode": remote_ip_prefix, "protocol": TCP},
+        {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 9092, "port_range_max": 9092, "remote_mode": remote_ip_prefix, "protocol": TCP}, 
+        {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 50010, "port_range_max": 50090, "remote_mode": remote_ip_prefix, "protocol": TCP},
+        {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "remote_mode": remote_ip_prefix, "protocol": ICMP}
+      ]
+
+  kafka_node_1:
+    type: http://artifacts.pd.infn.it/packages/SMACT/templates/kafka_node.yaml
+    properties:
+      image_to_use: { get_param: image_to_use }
+      flavor_to_use: { get_param: flavor_to_use }
+      key_name_user: { get_param: key_name_user }
+      net_host_prefix: { get_param: net_host_prefix }
+      net_domain: { get_param: net_domain }
+      tenant_net_name: { get_param: tenant_net_name }
+      tenant_subnet_name: { get_param: tenant_subnet_name }
+      fixed_ip: { get_param: fixed_ip_node_1 }
+      fixed_ip_node_1: { get_param: fixed_ip_node_1 }
+      fixed_ip_node_2: { get_param: fixed_ip_node_2 }
+      fixed_ip_node_3: { get_param: fixed_ip_node_3 }
+      nameserver_1: { get_param: nameserver_1 }
+      nameserver_2: { get_param: nameserver_2 }
+      node_id: "1"
+      sec_group_id: { get_resource: secgroup_bigstack_sg }
+      root_pw: { get_resource: root_pw }
+
+  kafka_node_2:
+    type: http://artifacts.pd.infn.it/packages/SMACT/templates/kafka_node.yaml
+    properties:
+      image_to_use: { get_param: image_to_use }
+      flavor_to_use: { get_param: flavor_to_use }
+      key_name_user: { get_param: key_name_user }
+      net_host_prefix: { get_param: net_host_prefix }
+      net_domain: { get_param: net_domain }
+      tenant_net_name: { get_param: tenant_net_name }
+      tenant_subnet_name: { get_param: tenant_subnet_name }
+      fixed_ip: { get_param: fixed_ip_node_2 }
+      fixed_ip_node_1: { get_param: fixed_ip_node_1 }
+      fixed_ip_node_2: { get_param: fixed_ip_node_2 }
+      fixed_ip_node_3: { get_param: fixed_ip_node_3 }
+      nameserver_1: { get_param: nameserver_1 }
+      nameserver_2: { get_param: nameserver_2 }
+      node_id: "2"
+      sec_group_id: { get_resource: secgroup_bigstack_sg }
+      root_pw: { get_resource: root_pw }
+
+  kafka_node_3:
+    type: http://artifacts.pd.infn.it/packages/SMACT/templates/kafka_node.yaml
+    properties:
+      image_to_use: { get_param: image_to_use }
+      flavor_to_use: { get_param: flavor_to_use }
+      key_name_user: { get_param: key_name_user }
+      net_host_prefix: { get_param: net_host_prefix }
+      net_domain: { get_param: net_domain }
+      tenant_net_name: { get_param: tenant_net_name }
+      tenant_subnet_name: { get_param: tenant_subnet_name }
+      fixed_ip: { get_param: fixed_ip_node_3 }
+      fixed_ip_node_1: { get_param: fixed_ip_node_1 }
+      fixed_ip_node_2: { get_param: fixed_ip_node_2 }
+      fixed_ip_node_3: { get_param: fixed_ip_node_3 }
+      nameserver_1: { get_param: nameserver_1 }
+      nameserver_2: { get_param: nameserver_2 }
+      node_id: "3"
+      sec_group_id: { get_resource: secgroup_bigstack_sg }
+      root_pw: { get_resource: root_pw }
+
+outputs:
+  root_pw:
+    description: root pwd to access to all VMs in spark cluster
+    value: { get_resource: root_pw }
+
+
+

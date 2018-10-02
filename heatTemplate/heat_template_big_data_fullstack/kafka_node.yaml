@@ -1,0 +1,211 @@
+heat_template_version: 2017-02-24
+
+parameters:
+  image_to_use:
+    type: string
+    label: Image name or ID
+    description: Image used for all nodes in the kafka cluster
+
+  flavor_to_use:
+    type: string
+    label: Flavor name 
+    description: Flavor used for all nodes in the kafka cluster
+
+  key_name_user:
+    type: string
+    label: Public ssh key of one user.
+    description: Public ssh key of one user.
+
+  avail_zone:
+    type: string
+    label: Availability Zone
+    description: Availability Zone for the cluster
+    default: "nova"
+
+  net_host_prefix:
+    type: string
+    label: Prefix for the hostname of the cluster nodes
+    description: Prefix for the hostname of the cluster nodes.
+
+  net_domain:
+    type: string
+    label: Sub-domain for the cluster installation
+    description: Sub-domain for the cluster installation.
+
+  tenant_net_name:
+    type: string
+    label: Network ID of the tenant
+    description: This parameter has been set with the id of the tenant network (SMACT-lan id)
+
+  tenant_subnet_name:
+    type: string
+    label: Sub network of the tenant
+    description: This parameter has been set with the name of the tenant sub network.
+
+  fixed_ip:
+    type: string
+    label: Fixed ip for the current host
+    description: Fixed ip for the current host
+  
+  fixed_ip_node_1:
+    type: string
+    label: Fixed ip for node1 host
+    description: Fixed ip for node1 host
+
+  fixed_ip_node_2:
+    type: string
+    label: Fixed ip for node2 host
+    description: Fixed ip for node2 host
+
+  fixed_ip_node_3:
+    type: string
+    label: Fixed ip for node3 host
+    description: Fixed ip for node3 host
+
+  nameserver_1:
+    type: string
+    label: First name server ip
+    description: First name server ip
+
+  nameserver_2:
+    type: string
+    label: Second name server ip
+    description: Second name server ip
+
+  node_id:
+    type: string
+    label: Node ID
+    description: Node ID
+
+  sec_group_id:
+    type: string
+    label: Security Group ID
+    description: Security Group ID
+
+  root_pw:
+    type: string
+    label: Root password
+    description: Root password
+
+resources:
+
+  kafka_port:
+    type: OS::Neutron::Port
+    properties:
+      name:
+        str_replace:
+            template: "kafka-port-$KAFKA_ID"
+            params:
+                $KAFKA_ID: { get_param: node_id }
+      network_id: { get_param: tenant_net_name }
+      fixed_ips:
+        - { ip_address: { get_param: fixed_ip }, subnet: { get_param: tenant_subnet_name } }
+      security_groups: [ { get_param: sec_group_id }, ]
+
+  kafka_instance:
+    type: OS::Nova::Server
+    properties:
+      name:  
+        str_replace:
+            template: "kafka-instance-$KAFKA_ID"
+            params:
+                $KAFKA_ID: { get_param: node_id }
+      key_name: { get_param: key_name_user }
+      image: { get_param: image_to_use } 
+      flavor: { get_param: flavor_to_use }
+      admin_pass: { get_param: root_pw }
+      availability_zone: { get_param: avail_zone }
+      networks:
+        - port: { get_resource: kafka_port }
+      user_data_format: RAW
+      user_data:
+        str_replace:
+          template: |
+            #!/bin/bash
+            cat > /etc/hosts << EOF
+            127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+            ::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+            $IP_FIX_NODE1 $HOST_PRE-01.$S_DOMAIN.pd.infn.it  $HOST_PRE-01
+            $IP_FIX_NODE2 $HOST_PRE-02.$S_DOMAIN.pd.infn.it  $HOST_PRE-02
+            $IP_FIX_NODE3 $HOST_PRE-03.$S_DOMAIN.pd.infn.it  $HOST_PRE-03
+            EOF
+            cat > /etc/resolv.conf << EOF
+            search smact.pd.infn.it pd.infn.it
+            nameserver $IP_NS1 $IP_NS2
+            EOF
+            hostnamectl set-hostname $HOST_PRE-0$HOST_NUMBER.$S_DOMAIN.pd.infn.it
+            yum -y install epel-release yum-priorities vim-enhanced wget w3m java-1.8.0-openjdk
+            wget -O /tmp/kafka_2.11-1.1.0.tgz https://archive.apache.org/dist/kafka/1.1.0/kafka_2.11-1.1.0.tgz
+            tar -C /opt -zxf /tmp/kafka_2.11-1.1.0.tgz
+            mv /opt/kafka_2.11-1.1.0 /opt/kafka
+            adduser kafka
+            mkdir -p /var/lib/kafka/kafka-logs /var/cache/zookeeper /var/log/kafka
+            chown kafka.kafka /var/lib/kafka/kafka-logs /var/cache/zookeeper /var/log/kafka
+            ln -s /var/log/kafka /opt/kafka/log
+            cat > /opt/kafka/config/server.properties << EOF
+            broker.id=$HOST_NUMBER
+            num.network.threads=3
+            num.io.threads=8
+            socket.send.buffer.bytes=102400
+            socket.receive.buffer.bytes=102400
+            socket.request.max.bytes=104857600
+            log.dirs=/var/lib/kafka/kafka-logs
+            num.partitions=1
+            num.recovery.threads.per.data.dir=1
+            offsets.topic.replication.factor=1
+            transaction.state.log.replication.factor=1
+            transaction.state.log.min.isr=1
+            log.retention.hours=168
+            log.segment.bytes=1073741824
+            log.retention.check.interval.ms=300000
+            zookeeper.connect=localhost:2181
+            zookeeper.connection.timeout.ms=6000
+            group.initial.rebalance.delay.ms=0
+            EOF
+            cat > /opt/kafka/config/zookeeper.properties << EOF
+            dataDir=/var/cache/zookeeper
+            clientPort=2181
+            tickTime=2000
+            initLimit=5
+            syncLimit=2
+            server.1=$HOST_PRE-01.$S_DOMAIN.pd.infn.it:2888:3888
+            server.2=$HOST_PRE-02.$S_DOMAIN.pd.infn.it:2888:3888
+            server.3=$HOST_PRE-03.$S_DOMAIN.pd.infn.it:2888:3888
+            EOF
+            echo $HOST_NUMBER > /var/cache/zookeeper/myid
+            cat > /usr/lib/systemd/system/zookeeper.service << EOF
+            [Unit]
+            Description=Zookeeper service
+
+            [Service]
+            ExecStart=/usr/sbin/runuser -s /bin/bash -c "/opt/kafka/bin/zookeeper-server-start.sh /opt/kafka/config/zookeeper.properties" -- kafka
+            ExecStop=/usr/sbin/runuser -s /bin/bash -c "/opt/kafka/bin/zookeeper-server-stop.sh" -- kafka
+
+            [Install]
+            WantedBy=multi-user.target
+            EOF
+            cat > /usr/lib/systemd/system/kafka.service << EOF
+            [Unit]
+            Description=Kafka broker
+            Wants=zookeeper.service
+            After=zookeeper.service
+
+            [Service]
+            ExecStart=/usr/sbin/runuser -s /bin/bash -c "/opt/kafka/bin/kafka-server-start.sh /opt/kafka/config/server.properties" -- kafka
+            ExecStop=/usr/sbin/runuser -s /bin/bash -c "/opt/kafka/bin/kafka-server-start.sh" -- kafka
+
+            [Install]
+            WantedBy=multi-user.target
+            EOF
+            echo "export PATH=$PATH:/opt/kafka/bin/" >> /etc/bashrc
+            systemctl enable zookeeper kafka
+          params:
+            $IP_FIX_NODE1: { get_param: fixed_ip_node_1 }
+            $IP_FIX_NODE2: { get_param: fixed_ip_node_2 }
+            $IP_FIX_NODE3: { get_param: fixed_ip_node_3 }
+            $IP_NS1: { get_param: nameserver_1 }
+            $IP_NS2: { get_param: nameserver_2 }
+            $HOST_NUMBER: { get_param: node_id }
+            $HOST_PRE: { get_param: net_host_prefix }
+            $S_DOMAIN: { get_param: net_domain }
+

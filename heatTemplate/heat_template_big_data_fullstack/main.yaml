@@ -21,23 +21,17 @@ parameters:
     description: Public ssh key of one user.
     default: mbuto-desktop
 
-  tenant_net_name:
+  tenant_net_id:
     type: string
     label: Network ID of the tenant
-    description: This parameter has been set with the id of the tenant network (SMACT-lan id)
+    description: This parameter has been set with the id of the tenant network.
     default: d68e615a-7716-4e95-a413-492339300b58
 
   tenant_subnet_name:
     type: string
     label: Sub network of the tenant
-    description: This parameter has been set with the name of the tenant sub network. If you have more than one choose one of thoose.
+    description: This parameter has been set with the name of the tenant sub network.
     default: "sub-SMACT-lan"
-
-  avail_zone:
-    type: string
-    label: Availability Zone
-    description: Availability Zone for the cluster
-    default: "nova"
 
   net_domain:
     type: string
@@ -45,41 +39,48 @@ parameters:
     description: Sub-domain for the cluster installation.
     default: "smact"
 
-  net_host_prefix:
+  kafka_ip_node_1:
     type: string
-    label: Prefix for the hostname of the cluster nodes
-    description: Prefix for the hostname of the cluster nodes.
-    default: "kafka-test"
-
-  fixed_ip_node_1:
-    type: string
-    label: Fixed ip for node1 host
-    description: Fixed ip for node1 host
+    label: Fixed ip for kafka node1 host
+    description: Fixed ip for kafka node1 host
     default: "10.64.48.20"
 
-  fixed_ip_node_2:
+  kafka_ip_node_2:
     type: string
-    label: Fixed ip for node2 host
-    description: Fixed ip for node2 host
+    label: Fixed ip for kafka node2 host
+    description: Fixed ip for kafka node2 host
     default: "10.64.48.21"
 
-  fixed_ip_node_3:
+  kafka_ip_node_3:
     type: string
-    label: Fixed ip for node3 host
-    description: Fixed ip for node3 host
+    label: Fixed ip for kafka node3 host
+    description: Fixed ip for kafka node3 host
     default: "10.64.48.22"
 
-  nameserver_1:
+  hdfs_ip_node_1:
     type: string
-    label: First name server ip
-    description: First name server ip
-    default: "192.84.143.31"
+    label: Fixed ip for hdfs node1 host
+    description: Fixed ip for hdfs node1 host
+    default: "10.64.48.50"
 
-  nameserver_2:
+  hdfs_ip_node_2:
     type: string
-    label: Second name server ip
-    description: Second name server ip
-    default: "192.84.143.16"
+    label: Fixed ip for hdfs node2 host
+    description: Fixed ip for hdfs node2 host
+    default: "10.64.48.51"
+
+  hdfs_ip_node_3:
+    type: string
+    label: Fixed ip for hdfs node3 host
+    description: Fixed ip for hdfs node3 host
+    default: "10.64.48.52"
+
+  nameserver_list:
+    type: string
+    label: Name server ip list
+    description: Name server ip list
+    default:  "192.84.143.31 192.84.143.16"
+
 
 resources:
   
@@ -119,17 +120,15 @@ resources:
       image_to_use: { get_param: image_to_use }
       flavor_to_use: { get_param: flavor_to_use }
       key_name_user: { get_param: key_name_user }
-      net_host_prefix: { get_param: net_host_prefix }
       net_domain: { get_param: net_domain }
-      tenant_net_name: { get_param: tenant_net_name }
+      tenant_net_id: { get_param: tenant_net_id }
       tenant_subnet_name: { get_param: tenant_subnet_name }
-      fixed_ip: { get_param: fixed_ip_node_1 }
-      fixed_ip_node_1: { get_param: fixed_ip_node_1 }
-      fixed_ip_node_2: { get_param: fixed_ip_node_2 }
-      fixed_ip_node_3: { get_param: fixed_ip_node_3 }
-      nameserver_1: { get_param: nameserver_1 }
-      nameserver_2: { get_param: nameserver_2 }
-      node_id: "1"
+      fixed_ip: { get_param: kafka_ip_node_1 }
+      fixed_ip_node_1: { get_param: kafka_ip_node_1 }
+      fixed_ip_node_2: { get_param: kafka_ip_node_2 }
+      fixed_ip_node_3: { get_param: kafka_ip_node_3 }
+      nameserver_list: { get_param: nameserver_list }
+      node_id: 1
       sec_group_id: { get_resource: secgroup_bigstack_sg }
       root_pw: { get_resource: root_pw }
 
@@ -139,17 +138,15 @@ resources:
       image_to_use: { get_param: image_to_use }
       flavor_to_use: { get_param: flavor_to_use }
       key_name_user: { get_param: key_name_user }
-      net_host_prefix: { get_param: net_host_prefix }
       net_domain: { get_param: net_domain }
-      tenant_net_name: { get_param: tenant_net_name }
+      tenant_net_id: { get_param: tenant_net_id }
       tenant_subnet_name: { get_param: tenant_subnet_name }
-      fixed_ip: { get_param: fixed_ip_node_2 }
-      fixed_ip_node_1: { get_param: fixed_ip_node_1 }
-      fixed_ip_node_2: { get_param: fixed_ip_node_2 }
-      fixed_ip_node_3: { get_param: fixed_ip_node_3 }
-      nameserver_1: { get_param: nameserver_1 }
-      nameserver_2: { get_param: nameserver_2 }
-      node_id: "2"
+      fixed_ip: { get_param: kafka_ip_node_2 }
+      fixed_ip_node_1: { get_param: kafka_ip_node_1 }
+      fixed_ip_node_2: { get_param: kafka_ip_node_2 }
+      fixed_ip_node_3: { get_param: kafka_ip_node_3 }
+      nameserver_list: { get_param: nameserver_list }
+      node_id: 2
       sec_group_id: { get_resource: secgroup_bigstack_sg }
       root_pw: { get_resource: root_pw }
 
@@ -159,24 +156,83 @@ resources:
       image_to_use: { get_param: image_to_use }
       flavor_to_use: { get_param: flavor_to_use }
       key_name_user: { get_param: key_name_user }
-      net_host_prefix: { get_param: net_host_prefix }
       net_domain: { get_param: net_domain }
-      tenant_net_name: { get_param: tenant_net_name }
+      tenant_net_id: { get_param: tenant_net_id }
       tenant_subnet_name: { get_param: tenant_subnet_name }
-      fixed_ip: { get_param: fixed_ip_node_3 }
-      fixed_ip_node_1: { get_param: fixed_ip_node_1 }
-      fixed_ip_node_2: { get_param: fixed_ip_node_2 }
-      fixed_ip_node_3: { get_param: fixed_ip_node_3 }
-      nameserver_1: { get_param: nameserver_1 }
-      nameserver_2: { get_param: nameserver_2 }
-      node_id: "3"
+      fixed_ip: { get_param: kafka_ip_node_3 }
+      fixed_ip_node_1: { get_param: kafka_ip_node_1 }
+      fixed_ip_node_2: { get_param: kafka_ip_node_2 }
+      fixed_ip_node_3: { get_param: kafka_ip_node_3 }
+      nameserver_list: { get_param: nameserver_list }
+      node_id: 3
       sec_group_id: { get_resource: secgroup_bigstack_sg }
       root_pw: { get_resource: root_pw }
 
+  hdfs_node_1:
+    type: http://artifacts.pd.infn.it/packages/SMACT/templates/hdfs_node.yaml
+    properties:
+      image_to_use: { get_param: image_to_use }
+      flavor_to_use: { get_param: flavor_to_use }
+      key_name_user: { get_param: key_name_user }
+      net_domain: { get_param: net_domain }
+      tenant_net_id: { get_param: tenant_net_id }
+      tenant_subnet_name: { get_param: tenant_subnet_name }
+      fixed_ip: { get_param: hdfs_ip_node_1 }
+      fixed_ip_node_1: { get_param: hdfs_ip_node_1 }
+      fixed_ip_node_2: { get_param: hdfs_ip_node_2 }
+      fixed_ip_node_3: { get_param: hdfs_ip_node_3 }
+      nameserver_list: { get_param: nameserver_list }
+      node_id: 1
+      sec_group_id: { get_resource: secgroup_bigstack_sg }
+      root_pw: { get_resource: root_pw }
+      hadoop_pw: { get_resource: hadoop_pw }
+
+  hdfs_node_2:
+    type: http://artifacts.pd.infn.it/packages/SMACT/templates/hdfs_node.yaml
+    properties:
+      image_to_use: { get_param: image_to_use }
+      flavor_to_use: { get_param: flavor_to_use }
+      key_name_user: { get_param: key_name_user }
+      net_domain: { get_param: net_domain }
+      tenant_net_id: { get_param: tenant_net_id }
+      tenant_subnet_name: { get_param: tenant_subnet_name }
+      fixed_ip: { get_param: hdfs_ip_node_2 }
+      fixed_ip_node_1: { get_param: hdfs_ip_node_1 }
+      fixed_ip_node_2: { get_param: hdfs_ip_node_2 }
+      fixed_ip_node_3: { get_param: hdfs_ip_node_3 }
+      nameserver_list: { get_param: nameserver_list }
+      node_id: 2
+      sec_group_id: { get_resource: secgroup_bigstack_sg }
+      root_pw: { get_resource: root_pw }
+      hadoop_pw: { get_resource: hadoop_pw }
+
+  hdfs_node_3:
+    type: http://artifacts.pd.infn.it/packages/SMACT/templates/hdfs_node.yaml
+    properties:
+      image_to_use: { get_param: image_to_use }
+      flavor_to_use: { get_param: flavor_to_use }
+      key_name_user: { get_param: key_name_user }
+      net_domain: { get_param: net_domain }
+      tenant_net_id: { get_param: tenant_net_id }
+      tenant_subnet_name: { get_param: tenant_subnet_name }
+      fixed_ip: { get_param: hdfs_ip_node_3 }
+      fixed_ip_node_1: { get_param: hdfs_ip_node_1 }
+      fixed_ip_node_2: { get_param: hdfs_ip_node_2 }
+      fixed_ip_node_3: { get_param: hdfs_ip_node_3 }
+      nameserver_list: { get_param: nameserver_list }
+      node_id: 3
+      sec_group_id: { get_resource: secgroup_bigstack_sg }
+      root_pw: { get_resource: root_pw }
+      hadoop_pw: { get_resource: hadoop_pw }
+
+
 outputs:
+
   root_pw:
     description: root pwd to access to all VMs in spark cluster
     value: { get_resource: root_pw }
 
-
+  hadoop_pw:
+    description: hadoop pwd to access to all VMs in hadoop cluster
+    value: {get_resource: hadoop_pw}
 

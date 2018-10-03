@@ -1,0 +1,269 @@
+heat_template_version: 2017-02-24
+
+parameters:
+  image_to_use:
+    type: string
+    label: Image name or ID
+    description: Image used for all nodes in the kafka cluster
+
+  flavor_to_use:
+    type: string
+    label: Flavor name 
+    description: Flavor used for all nodes in the kafka cluster
+
+  key_name_user:
+    type: string
+    label: Public ssh key of one user.
+    description: Public ssh key of one user.
+
+  root_pw:
+    type: string
+    label: Root password
+    description: Root password
+
+  hadoop_pw:
+    type: string
+    label: Hadoop password
+    description: Hadoop password
+
+  avail_zone:
+    type: string
+    label: Availability Zone
+    description: Availability Zone for the cluster
+    default: "nova"
+
+  net_host_prefix:
+    type: string
+    label: Prefix for the hostname of the cluster nodes
+    description: Prefix for the hostname of the cluster nodes.
+    default: "hdfs-test"
+
+  net_domain:
+    type: string
+    label: Sub-domain for the cluster installation
+    description: Sub-domain for the cluster installation.
+
+  tenant_net_id:
+    type: string
+    label: Network ID of the tenant
+    description: This parameter has been set with the id of the tenant network
+
+  tenant_subnet_name:
+    type: string
+    label: Sub network of the tenant
+    description: This parameter has been set with the name of the tenant sub network.
+
+  nameserver_list:
+    type: string
+    label: Name server ip list
+    description: Name server ip list
+
+  sec_group_id:
+    type: string
+    label: Security Group ID
+    description: Security Group ID
+
+  node_id:
+    type: number
+    label: Node ID
+    description: Node ID
+
+  fixed_ip:
+    type: string
+    label: Fixed ip for the current host
+    description: Fixed ip for the current host
+
+  fixed_ip_node_1:
+    type: string
+    label: Fixed ip for node1 host
+    description: Fixed ip for node1 host
+
+  fixed_ip_node_2:
+    type: string
+    label: Fixed ip for node2 host
+    description: Fixed ip for node2 host
+
+  fixed_ip_node_3:
+    type: string
+    label: Fixed ip for node3 host
+    description: Fixed ip for node3 host
+
+  hadoop_ver:
+    type: string
+    label: Hadoop version
+    description: Hadoop version
+    default: "2.9.1"
+
+
+resources:
+
+  hdfs_port:
+    type: OS::Neutron::Port
+    properties:
+      name:
+        str_replace:
+            template: "hdfs-port-$HDFS_ID"
+            params:
+                $HDFS_ID: { get_param: node_id }
+      network_id: { get_param: tenant_net_id }
+      fixed_ips:
+        - { ip_address: { get_param: fixed_ip }, subnet: { get_param: tenant_subnet_name } }
+      security_groups: [ { get_param: sec_group_id }, ]
+  
+  hdfs_instance:
+    type: OS::Nova::Server
+    properties:
+      name:  
+        str_replace:
+            template: "hdfs-instance-$HDFS_ID"
+            params:
+                $HDFS_ID: { get_param: node_id }
+      key_name: { get_param: key_name_user }
+      image: { get_param: image_to_use } 
+      flavor: { get_param: flavor_to_use }
+      admin_pass: { get_param: root_pw }
+      networks:
+        - port: { get_resource: hdfs_port }
+      user_data_format: RAW
+      user_data:
+        str_replace:
+          template: |
+            #!/bin/bash
+            hostnamectl set-hostname $HOST_PRE-0$HOST_NUMBER.$S_DOMAIN.pd.infn.it
+            cat > /etc/hosts << EOF
+            127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+            ::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+            $IP_FIX_NODE1    $HOST_PRE-01.$S_DOMAIN.pd.infn.it    $HOST_PRE-01
+            $IP_FIX_NODE2    $HOST_PRE-02.$S_DOMAIN.pd.infn.it    $HOST_PRE-02
+            $IP_FIX_NODE3    $HOST_PRE-03.$S_DOMAIN.pd.infn.it    $HOST_PRE-03
+            EOF
+            cat > /etc/resolv.conf << EOF
+            search smact.pd.infn.it pd.infn.it
+            nameserver $IP_NS_LIST
+            EOF
+            cat > /etc/ssh/shosts.equiv << EOF
+            $HOST_PRE-01.$S_DOMAIN.pd.infn.it
+            $HOST_PRE-02.$S_DOMAIN.pd.infn.it
+            $HOST_PRE-03.$S_DOMAIN.pd.infn.it
+            EOF
+            cat >> /etc/ssh/sshd_config << EOF
+            # workaround
+            HostbasedAuthentication yes
+            IgnoreUserKnownHosts yes
+            IgnoreRhosts yes
+            EOF
+            cat > /etc/ssh/ssh_config << EOF
+            Host *
+                HostbasedAuthentication yes
+                EnableSSHKeysign yes
+                GSSAPIAuthentication no
+                ForwardX11Trusted yes
+                SendEnv LANG LC_CTYPE LC_NUMERIC LC_TIME LC_COLLATE LC_MONETARY LC_MESSAGES
+                SendEnv LC_PAPER LC_NAME LC_ADDRESS LC_TELEPHONE LC_MEASUREMENT
+                SendEnv LC_IDENTIFICATION LC_ALL LANGUAGE
+                SendEnv XMODIFIERS
+            EOF
+            yum localinstall -y http://archive.cloudera.com/cdh5/one-click-install/redhat/7/x86_64/cloudera-cdh-5-0.x86_64.rpm
+            yum install -y ntp tar wget epel-release java-1.8.0-openjdk
+            cat >> /etc/bashrc << EOF
+            export JAVA_HOME=/usr/lib/jvm/jre-1.8.0-openjdk
+            export JRE_HOME=/usr/lib/jvm/jre-1.8.0-openjdk/jre
+            EOF
+            cat >> /etc/sysctl.conf << EOF
+            net.ipv6.conf.all.disable_ipv6 = 1
+            net.ipv6.conf.default.disable_ipv6 = 1
+            EOF
+            chmod 777 /opt/
+            useradd hadoop
+            echo -n hadoop:$HADOOP_PW | chpasswd
+            source /etc/bashrc
+            wget -O /tmp/hadoop-$HDOOP_V.tar.gz http://www.eu.apache.org/dist/hadoop/common/hadoop-$HDOOP_V/hadoop-$HDOOP_V.tar.gz
+            tar -C /opt -zxf /tmp/hadoop-$HDOOP_V.tar.gz
+            mv /opt/hadoop-$HDOOP_V /opt/hadoop
+            chown -R hadoop.hadoop /opt/hadoop
+            cat >> /home/hadoop/.bashrc << EOF
+            export HADOOP_PREFIX=/opt/hadoop
+            export HADOOP_HOME=\$HADOOP_PREFIX
+            export HADOOP_COMMON_HOME=\$HADOOP_PREFIX
+            export HADOOP_CONF_DIR=\$HADOOP_PREFIX/etc/hadoop
+            export HADOOP_HDFS_HOME=\$HADOOP_PREFIX
+            export HADOOP_MAPRED_HOME=\$HADOOP_PREFIX
+            export HADOOP_YARN_HOME=\$HADOOP_PREFIX
+            export PATH=\$PATH:\$HADOOP_PREFIX/sbin:\$HADOOP_PREFIX/bin
+            EOF
+            #
+            # https://www.linode.com/docs/databases/hadoop/how-to-install-and-set-up-hadoop-cluster/
+            #
+            mkdir /home/hadoop/datanode /home/hadoop/namenode
+            chown hadoop.hadoop /home/hadoop/datanode /home/hadoop/namenode
+            cat > /opt/hadoop/etc/hadoop/core-site.xml << EOF
+            <configuration>
+              <property>
+                <name>fs.defaultFS</name>
+                <value>hdfs://$HOST_PRE-01.$S_DOMAIN.pd.infn.it:9000/</value>
+              </property>
+            </configuration>
+            EOF
+            cat > /opt/hadoop/etc/hadoop/hdfs-site.xml << EOF
+            <configuration>
+              <property>
+                <name>dfs.replication</name>
+                <value>1</value>
+              </property>
+              <property>
+                <name>dfs.permissions</name>
+                <value>false</value>
+              </property>
+              <property>
+                <name>dfs.datanode.data.dir</name>
+                <value>/home/hadoop/datanode</value>
+              </property>
+              <property>
+                <name>dfs.namenode.name.dir</name>
+                <value>/home/hadoop/namenode</value>
+              </property>
+              <property>
+                <name>dfs.secondary.http.address</name>
+                <value>$IP_FIX_NODE1:50090</value>
+              </property>
+            </configuration>
+            EOF
+            cat > /opt/hadoop/etc/hadoop/mapred-site.xml << EOF
+            <configuration>
+              <property>
+                <name>mapreduce.framework.name</name>
+                <value>yarn</value>
+              </property>
+            </configuration>
+            EOF
+            cat > /opt/hadoop/etc/hadoop/yarn-site.xml << EOF
+            <configuration>
+              <property>
+                <name>yarn.resourcemanager.hostname</name>
+                <value>$HOST_PRE-01</value>
+              </property>
+              <property>
+                <name>yarn.nodemanager.hostname</name>
+                <value>$HOST_PRE-01</value>
+              </property>
+              <property>
+                <name>yarn.nodemanager.aux-services</name>
+                <value>mapreduce_shuffle</value>
+              </property>
+            </configuration>
+            EOF
+            cat > /opt/hadoop/etc/hadoop/slaves << EOF
+            $HOST_PRE-02.$S_DOMAIN.pd.infn.it
+            $HOST_PRE-03.$S_DOMAIN.pd.infn.it
+            EOF
+          params:
+            $IP_FIX_NODE1: { get_param: fixed_ip_node_1 }
+            $IP_FIX_NODE2: { get_param: fixed_ip_node_2 }
+            $IP_FIX_NODE3: { get_param: fixed_ip_node_3 }
+            $IP_NS_LIST:   { get_param: nameserver_list }
+            $HOST_NUMBER:  { get_param: node_id }
+            $HADOOP_PW:    { get_param: hadoop_pw }
+            $HOST_PRE:     { get_param: net_host_prefix }
+            $S_DOMAIN:     { get_param: net_domain }
+            $HDOOP_V:      { get_param: hadoop_ver }
+

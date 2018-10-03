@@ -26,16 +26,17 @@ parameters:
     type: string
     label: Prefix for the hostname of the cluster nodes
     description: Prefix for the hostname of the cluster nodes.
+    default: "kafka-test"
 
   net_domain:
     type: string
     label: Sub-domain for the cluster installation
     description: Sub-domain for the cluster installation.
 
-  tenant_net_name:
+  tenant_net_id:
     type: string
     label: Network ID of the tenant
-    description: This parameter has been set with the id of the tenant network (SMACT-lan id)
+    description: This parameter has been set with the id of the tenant network
 
   tenant_subnet_name:
     type: string
@@ -62,18 +63,13 @@ parameters:
     label: Fixed ip for node3 host
     description: Fixed ip for node3 host
 
-  nameserver_1:
+  nameserver_list:
     type: string
-    label: First name server ip
-    description: First name server ip
-
-  nameserver_2:
-    type: string
-    label: Second name server ip
-    description: Second name server ip
+    label: Name server ip list
+    description: Name server ip list
 
   node_id:
-    type: string
+    type: number
     label: Node ID
     description: Node ID
 
@@ -97,7 +93,7 @@ resources:
             template: "kafka-port-$KAFKA_ID"
             params:
                 $KAFKA_ID: { get_param: node_id }
-      network_id: { get_param: tenant_net_name }
+      network_id: { get_param: tenant_net_id }
       fixed_ips:
         - { ip_address: { get_param: fixed_ip }, subnet: { get_param: tenant_subnet_name } }
       security_groups: [ { get_param: sec_group_id }, ]
@@ -131,7 +127,7 @@ resources:
             EOF
             cat > /etc/resolv.conf << EOF
             search smact.pd.infn.it pd.infn.it
-            nameserver $IP_NS1 $IP_NS2
+            nameserver $IP_NS_LIST
             EOF
             hostnamectl set-hostname $HOST_PRE-0$HOST_NUMBER.$S_DOMAIN.pd.infn.it
             yum -y install epel-release yum-priorities vim-enhanced wget w3m java-1.8.0-openjdk
@@ -203,9 +199,8 @@ resources:
             $IP_FIX_NODE1: { get_param: fixed_ip_node_1 }
             $IP_FIX_NODE2: { get_param: fixed_ip_node_2 }
             $IP_FIX_NODE3: { get_param: fixed_ip_node_3 }
-            $IP_NS1: { get_param: nameserver_1 }
-            $IP_NS2: { get_param: nameserver_2 }
-            $HOST_NUMBER: { get_param: node_id }
-            $HOST_PRE: { get_param: net_host_prefix }
-            $S_DOMAIN: { get_param: net_domain }
+            $IP_NS_LIST:   { get_param: nameserver_list } 
+            $HOST_NUMBER:  { get_param: node_id }
+            $HOST_PRE:     { get_param: net_host_prefix }
+            $S_DOMAIN:     { get_param: net_domain }
 

@@ -21,11 +21,6 @@ parameters:
     label: Root password
     description: Root password
 
-  hadoop_pw:
-    type: string
-    label: Hadoop password
-    description: Hadoop password
-
   avail_zone:
     type: string
     label: Availability Zone
@@ -138,7 +133,7 @@ resources:
             $IP_FIX_NODE3    $HOST_PRE-03.$S_DOMAIN.pd.infn.it    $HOST_PRE-03
             EOF
             cat > /etc/resolv.conf << EOF
-            search smact.pd.infn.it pd.infn.it
+            search $S_DOMAIN.pd.infn.it pd.infn.it
             nameserver $IP_NS_LIST
             EOF
             cat > /etc/ssh/shosts.equiv << EOF
@@ -163,26 +158,21 @@ resources:
                 SendEnv LC_IDENTIFICATION LC_ALL LANGUAGE
                 SendEnv XMODIFIERS
             EOF
-            yum localinstall -y http://archive.cloudera.com/cdh5/one-click-install/redhat/7/x86_64/cloudera-cdh-5-0.x86_64.rpm
-            yum install -y ntp tar wget epel-release java-1.8.0-openjdk
-            cat >> /etc/bashrc << EOF
-            export JAVA_HOME=/usr/lib/jvm/jre-1.8.0-openjdk
-            export JRE_HOME=/usr/lib/jvm/jre-1.8.0-openjdk/jre
-            EOF
+            yum install -y vim-enhanced tar wget epel-release java-1.8.0-openjdk
             cat >> /etc/sysctl.conf << EOF
             net.ipv6.conf.all.disable_ipv6 = 1
             net.ipv6.conf.default.disable_ipv6 = 1
             EOF
-            chmod 777 /opt/
             useradd hadoop
-            echo -n hadoop:$HADOOP_PW | chpasswd
-            source /etc/bashrc
-            wget -O /tmp/hadoop-$HDOOP_V.tar.gz http://www.eu.apache.org/dist/hadoop/common/hadoop-$HDOOP_V/hadoop-$HDOOP_V.tar.gz
-            tar -C /opt -zxf /tmp/hadoop-$HDOOP_V.tar.gz
-            mv /opt/hadoop-$HDOOP_V /opt/hadoop
-            chown -R hadoop.hadoop /opt/hadoop
-            cat >> /home/hadoop/.bashrc << EOF
-            export HADOOP_PREFIX=/opt/hadoop
+            mkdir -p $BIGDATA_WD
+            chown -R hadoop.hadoop $BIGDATA_WD
+            wget -O /tmp/hadoop-$HDOOP_V.tar.gz http://artifacts.pd.infn.it/packages/SMACT/misc/hadoop-$HDOOP_V.tar.gz
+            runuser -s /bin/bash -c "tar -C $BIGDATA_WD -zxf /tmp/hadoop-$HDOOP_V.tar.gz" -- hadoop
+            mv $BIGDATA_WD/hadoop-$HDOOP_V $BIGDATA_WD/hadoop
+            cat > /etc/profile.d/hadoop.sh << EOF
+            export JAVA_HOME=/usr/lib/jvm/jre-1.8.0-openjdk
+            export JRE_HOME=/usr/lib/jvm/jre-1.8.0-openjdk/jre
+            export HADOOP_PREFIX=$BIGDATA_WD/hadoop
             export HADOOP_HOME=\$HADOOP_PREFIX
             export HADOOP_COMMON_HOME=\$HADOOP_PREFIX
             export HADOOP_CONF_DIR=\$HADOOP_PREFIX/etc/hadoop
@@ -191,12 +181,9 @@ resources:
             export HADOOP_YARN_HOME=\$HADOOP_PREFIX
             export PATH=\$PATH:\$HADOOP_PREFIX/sbin:\$HADOOP_PREFIX/bin
             EOF
-            #
-            # https://www.linode.com/docs/databases/hadoop/how-to-install-and-set-up-hadoop-cluster/
-            #
             mkdir /home/hadoop/datanode /home/hadoop/namenode
             chown hadoop.hadoop /home/hadoop/datanode /home/hadoop/namenode
-            cat > /opt/hadoop/etc/hadoop/core-site.xml << EOF
+            cat > $BIGDATA_WD/hadoop/etc/hadoop/core-site.xml << EOF
             <configuration>
               <property>
                 <name>fs.defaultFS</name>
@@ -204,7 +191,7 @@ resources:
               </property>
             </configuration>
             EOF
-            cat > /opt/hadoop/etc/hadoop/hdfs-site.xml << EOF
+            cat > $BIGDATA_WD/hadoop/etc/hadoop/hdfs-site.xml << EOF
             <configuration>
               <property>
                 <name>dfs.replication</name>
@@ -228,7 +215,7 @@ resources:
               </property>
             </configuration>
             EOF
-            cat > /opt/hadoop/etc/hadoop/mapred-site.xml << EOF
+            cat > $BIGDATA_WD/hadoop/etc/hadoop/mapred-site.xml << EOF
             <configuration>
               <property>
                 <name>mapreduce.framework.name</name>
@@ -236,7 +223,7 @@ resources:
               </property>
             </configuration>
             EOF
-            cat > /opt/hadoop/etc/hadoop/yarn-site.xml << EOF
+            cat > $BIGDATA_WD/hadoop/etc/hadoop/yarn-site.xml << EOF
             <configuration>
               <property>
                 <name>yarn.resourcemanager.hostname</name>
@@ -252,7 +239,7 @@ resources:
               </property>
             </configuration>
             EOF
-            cat > /opt/hadoop/etc/hadoop/slaves << EOF
+            cat > $BIGDATA_WD/hadoop/etc/hadoop/slaves << EOF
             $HOST_PRE-02.$S_DOMAIN.pd.infn.it
             $HOST_PRE-03.$S_DOMAIN.pd.infn.it
             EOF
@@ -262,8 +249,22 @@ resources:
             $IP_FIX_NODE3: { get_param: fixed_ip_node_3 }
             $IP_NS_LIST:   { get_param: nameserver_list }
             $HOST_NUMBER:  { get_param: node_id }
-            $HADOOP_PW:    { get_param: hadoop_pw }
             $HOST_PRE:     { get_param: net_host_prefix }
             $S_DOMAIN:     { get_param: net_domain }
             $HDOOP_V:      { get_param: hadoop_ver }
+            $BIGDATA_WD:   "/opt/bigdata"
+
+#
+# Post-inst commands:
+# ssh-keyscan -t rsa1,rsa,dsa -f /etc/ssh/shosts.equiv >> /etc/ssh/ssh_known_hosts
+# systemctl restart sshd
+# (hadoop) hdfs namenode -format
+# (hadoop on master) start-dfs.sh
+
+#
+# https://www.linode.com/docs/databases/hadoop/how-to-install-and-set-up-hadoop-cluster/
+#
+
+
+
 

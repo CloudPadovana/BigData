@@ -89,11 +89,6 @@ resources:
    properties:
       length: 8 
 
-  hadoop_pw:
-   type: OS::Heat::RandomString
-   properties:
-      length: 8
-
   secgroup_bigstack_sg:
     type: OS::Neutron::SecurityGroup
     properties:
@@ -185,7 +180,6 @@ resources:
       node_id: 1
       sec_group_id: { get_resource: secgroup_bigstack_sg }
       root_pw: { get_resource: root_pw }
-      hadoop_pw: { get_resource: hadoop_pw }
 
   hdfs_node_2:
     type: http://artifacts.pd.infn.it/packages/SMACT/templates/hdfs_node.yaml
@@ -204,7 +198,6 @@ resources:
       node_id: 2
       sec_group_id: { get_resource: secgroup_bigstack_sg }
       root_pw: { get_resource: root_pw }
-      hadoop_pw: { get_resource: hadoop_pw }
 
   hdfs_node_3:
     type: http://artifacts.pd.infn.it/packages/SMACT/templates/hdfs_node.yaml
@@ -223,7 +216,22 @@ resources:
       node_id: 3
       sec_group_id: { get_resource: secgroup_bigstack_sg }
       root_pw: { get_resource: root_pw }
-      hadoop_pw: { get_resource: hadoop_pw }
+
+#  nifi_node_1:
+#    type: http://artifacts.pd.infn.it/packages/SMACT/templates/nifi_node.yaml
+#    properties:
+#      image_to_use: { get_param: image_to_use }
+#      flavor_to_use: { get_param: flavor_to_use }
+#      key_name_user: { get_param: key_name_user }
+#      tenant_net_id: { get_param: tenant_net_id }
+#      tenant_subnet_name: { get_param: tenant_subnet_name }
+#      nameserver_list: { get_param: nameserver_list }
+#      sec_group_id: { get_resource: secgroup_bigstack_sg }
+#      root_pw: { get_resource: root_pw }
+#      keystore_pw:
+#      admin_id:
+#      fixed_ip:
+#      fip_id:
 
 
 outputs:
@@ -232,7 +240,4 @@ outputs:
     description: root pwd to access to all VMs in spark cluster
     value: { get_resource: root_pw }
 
-  hadoop_pw:
-    description: hadoop pwd to access to all VMs in hadoop cluster
-    value: {get_resource: hadoop_pw}
 

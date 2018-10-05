@@ -126,19 +126,20 @@ resources:
             $IP_FIX_NODE3 $HOST_PRE-03.$S_DOMAIN.pd.infn.it  $HOST_PRE-03
             EOF
             cat > /etc/resolv.conf << EOF
-            search smact.pd.infn.it pd.infn.it
+            search $S_DOMAIN.pd.infn.it pd.infn.it
             nameserver $IP_NS_LIST
             EOF
             hostnamectl set-hostname $HOST_PRE-0$HOST_NUMBER.$S_DOMAIN.pd.infn.it
             yum -y install epel-release yum-priorities vim-enhanced wget w3m java-1.8.0-openjdk
-            wget -O /tmp/kafka_2.11-1.1.0.tgz https://archive.apache.org/dist/kafka/1.1.0/kafka_2.11-1.1.0.tgz
-            tar -C /opt -zxf /tmp/kafka_2.11-1.1.0.tgz
-            mv /opt/kafka_2.11-1.1.0 /opt/kafka
+            wget -O /tmp/kafka_2.11-1.1.0.tgz http://artifacts.pd.infn.it/packages/SMACT/misc/kafka_2.11-1.1.0.tgz
+            mkdir -p $BIGDATA_WD
+            tar -C $BIGDATA_WD -zxf /tmp/kafka_2.11-1.1.0.tgz
+            mv $BIGDATA_WD/kafka_2.11-1.1.0 $BIGDATA_WD/kafka
             adduser kafka
             mkdir -p /var/lib/kafka/kafka-logs /var/cache/zookeeper /var/log/kafka
             chown kafka.kafka /var/lib/kafka/kafka-logs /var/cache/zookeeper /var/log/kafka
-            ln -s /var/log/kafka /opt/kafka/log
-            cat > /opt/kafka/config/server.properties << EOF
+            ln -s /var/log/kafka $BIGDATA_WD/kafka/log
+            cat > $BIGDATA_WD/kafka/config/server.properties << EOF
             broker.id=$HOST_NUMBER
             num.network.threads=3
             num.io.threads=8
@@ -158,7 +159,7 @@ resources:
             zookeeper.connection.timeout.ms=6000
             group.initial.rebalance.delay.ms=0
             EOF
-            cat > /opt/kafka/config/zookeeper.properties << EOF
+            cat > $BIGDATA_WD/kafka/config/zookeeper.properties << EOF
             dataDir=/var/cache/zookeeper
             clientPort=2181
             tickTime=2000
@@ -174,8 +175,8 @@ resources:
             Description=Zookeeper service
 
             [Service]
-            ExecStart=/usr/sbin/runuser -s /bin/bash -c "/opt/kafka/bin/zookeeper-server-start.sh /opt/kafka/config/zookeeper.properties" -- kafka
-            ExecStop=/usr/sbin/runuser -s /bin/bash -c "/opt/kafka/bin/zookeeper-server-stop.sh" -- kafka
+            ExecStart=/usr/sbin/runuser -s /bin/bash -c "$BIGDATA_WD/kafka/bin/zookeeper-server-start.sh $BIGDATA_WD/kafka/config/zookeeper.properties" -- kafka
+            ExecStop=/usr/sbin/runuser -s /bin/bash -c "$BIGDATA_WD/kafka/bin/zookeeper-server-stop.sh" -- kafka
 
             [Install]
             WantedBy=multi-user.target
@@ -187,13 +188,13 @@ resources:
             After=zookeeper.service
 
             [Service]
-            ExecStart=/usr/sbin/runuser -s /bin/bash -c "/opt/kafka/bin/kafka-server-start.sh /opt/kafka/config/server.properties" -- kafka
-            ExecStop=/usr/sbin/runuser -s /bin/bash -c "/opt/kafka/bin/kafka-server-start.sh" -- kafka
+            ExecStart=/usr/sbin/runuser -s /bin/bash -c "$BIGDATA_WD/kafka/bin/kafka-server-start.sh $BIGDATA_WD/kafka/config/server.properties" -- kafka
+            ExecStop=/usr/sbin/runuser -s /bin/bash -c "$BIGDATA_WD/kafka/bin/kafka-server-start.sh" -- kafka
 
             [Install]
             WantedBy=multi-user.target
             EOF
-            echo "export PATH=$PATH:/opt/kafka/bin/" >> /etc/bashrc
+            echo "export PATH=$PATH:$BIGDATA_WD/kafka/bin/" >> /etc/bashrc
             systemctl enable zookeeper kafka
           params:
             $IP_FIX_NODE1: { get_param: fixed_ip_node_1 }
@@ -203,4 +204,5 @@ resources:
             $HOST_NUMBER:  { get_param: node_id }
             $HOST_PRE:     { get_param: net_host_prefix }
             $S_DOMAIN:     { get_param: net_domain }
+            $BIGDATA_WD:   "/opt/bigdata"
 

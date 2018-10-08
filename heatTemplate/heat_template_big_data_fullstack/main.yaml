@@ -57,23 +57,11 @@ parameters:
     description: Fixed ip for kafka node3 host
     default: "10.64.48.22"
 
-  hdfs_ip_node_1:
+  hdfs_ip_list:
     type: string
-    label: Fixed ip for hdfs node1 host
-    description: Fixed ip for hdfs node1 host
-    default: "10.64.48.50"
-
-  hdfs_ip_node_2:
-    type: string
-    label: Fixed ip for hdfs node2 host
-    description: Fixed ip for hdfs node2 host
-    default: "10.64.48.51"
-
-  hdfs_ip_node_3:
-    type: string
-    label: Fixed ip for hdfs node3 host
-    description: Fixed ip for hdfs node3 host
-    default: "10.64.48.52"
+    label: Fixed ip list for hdfs nodes
+    description: Fixed ip list for hdfs nodes
+    default: "10.64.48.50 10.64.48.51 10.64.48.52"
 
   nameserver_list:
     type: string
@@ -172,12 +160,9 @@ resources:
       net_domain: { get_param: net_domain }
       tenant_net_id: { get_param: tenant_net_id }
       tenant_subnet_name: { get_param: tenant_subnet_name }
-      fixed_ip: { get_param: hdfs_ip_node_1 }
-      fixed_ip_node_1: { get_param: hdfs_ip_node_1 }
-      fixed_ip_node_2: { get_param: hdfs_ip_node_2 }
-      fixed_ip_node_3: { get_param: hdfs_ip_node_3 }
+      fixed_ip_list: { get_param: hdfs_ip_list }
       nameserver_list: { get_param: nameserver_list }
-      node_id: 1
+      node_id: 0
       sec_group_id: { get_resource: secgroup_bigstack_sg }
       root_pw: { get_resource: root_pw }
 
@@ -190,12 +175,9 @@ resources:
       net_domain: { get_param: net_domain }
       tenant_net_id: { get_param: tenant_net_id }
       tenant_subnet_name: { get_param: tenant_subnet_name }
-      fixed_ip: { get_param: hdfs_ip_node_2 }
-      fixed_ip_node_1: { get_param: hdfs_ip_node_1 }
-      fixed_ip_node_2: { get_param: hdfs_ip_node_2 }
-      fixed_ip_node_3: { get_param: hdfs_ip_node_3 }
+      fixed_ip_list: { get_param: hdfs_ip_list }
       nameserver_list: { get_param: nameserver_list }
-      node_id: 2
+      node_id: 1
       sec_group_id: { get_resource: secgroup_bigstack_sg }
       root_pw: { get_resource: root_pw }
 
@@ -208,12 +190,9 @@ resources:
       net_domain: { get_param: net_domain }
       tenant_net_id: { get_param: tenant_net_id }
       tenant_subnet_name: { get_param: tenant_subnet_name }
-      fixed_ip: { get_param: hdfs_ip_node_3 }
-      fixed_ip_node_1: { get_param: hdfs_ip_node_1 }
-      fixed_ip_node_2: { get_param: hdfs_ip_node_2 }
-      fixed_ip_node_3: { get_param: hdfs_ip_node_3 }
+      fixed_ip_list: { get_param: hdfs_ip_list }
       nameserver_list: { get_param: nameserver_list }
-      node_id: 3
+      node_id: 2
       sec_group_id: { get_resource: secgroup_bigstack_sg }
       root_pw: { get_resource: root_pw }
 

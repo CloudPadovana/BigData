@@ -63,25 +63,10 @@ parameters:
     label: Node ID
     description: Node ID
 
-  fixed_ip:
+  fixed_ip_list:
     type: string
-    label: Fixed ip for the current host
-    description: Fixed ip for the current host
-
-  fixed_ip_node_1:
-    type: string
-    label: Fixed ip for node1 host
-    description: Fixed ip for node1 host
-
-  fixed_ip_node_2:
-    type: string
-    label: Fixed ip for node2 host
-    description: Fixed ip for node2 host
-
-  fixed_ip_node_3:
-    type: string
-    label: Fixed ip for node3 host
-    description: Fixed ip for node3 host
+    label: Fixed ip list for hdfs nodes
+    description: Fixed ip list for hdfs nodes
 
   hadoop_ver:
     type: string
@@ -102,7 +87,10 @@ resources:
                 $HDFS_ID: { get_param: node_id }
       network_id: { get_param: tenant_net_id }
       fixed_ips:
-        - { ip_address: { get_param: fixed_ip }, subnet: { get_param: tenant_subnet_name } }
+        - {
+            ip_address: { str_split: [ ' ', { get_param: fixed_ip_list }, { get_param: node_id } ] }, 
+            subnet: { get_param: tenant_subnet_name }
+          }
       security_groups: [ { get_param: sec_group_id }, ]
   
   hdfs_instance:
@@ -124,22 +112,23 @@ resources:
         str_replace:
           template: |
             #!/bin/bash
-            hostnamectl set-hostname $HOST_PRE-0$HOST_NUMBER.$S_DOMAIN.pd.infn.it
+            hostnamectl set-hostname <%HOST_PRE%>-0<%HOST_NUMBER%>.<%S_DOMAIN%>.pd.infn.it
             cat > /etc/hosts << EOF
-            127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
-            ::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
-            $IP_FIX_NODE1    $HOST_PRE-01.$S_DOMAIN.pd.infn.it    $HOST_PRE-01
-            $IP_FIX_NODE2    $HOST_PRE-02.$S_DOMAIN.pd.infn.it    $HOST_PRE-02
-            $IP_FIX_NODE3    $HOST_PRE-03.$S_DOMAIN.pd.infn.it    $HOST_PRE-03
-            EOF
-            cat > /etc/resolv.conf << EOF
-            search $S_DOMAIN.pd.infn.it pd.infn.it
-            nameserver $IP_NS_LIST
+            127.0.0.1 localhost localhost.localdomain localhost4 localhost4.localdomain4
+            ::1       localhost localhost.localdomain localhost6 localhost6.localdomain6
             EOF
             cat > /etc/ssh/shosts.equiv << EOF
-            $HOST_PRE-01.$S_DOMAIN.pd.infn.it
-            $HOST_PRE-02.$S_DOMAIN.pd.infn.it
-            $HOST_PRE-03.$S_DOMAIN.pd.infn.it
+            # Created by HEAT
+            EOF
+            idx=0
+            for ip_item in <%IP_LIST%> ; do
+              echo "${ip_item} <%HOST_PRE%>-0${idx}.<%S_DOMAIN%>.pd.infn.it <%HOST_PRE%>-0${idx}" >> /etc/hosts
+              echo "<%HOST_PRE%>-0${idx}.<%S_DOMAIN%>.pd.infn.it" >> /etc/ssh/shosts.equiv
+              idx=$[$idx+1]
+            done
+            cat > /etc/resolv.conf << EOF
+            search <%S_DOMAIN%>.pd.infn.it pd.infn.it
+            nameserver <%IP_NS_LIST%>
             EOF
             cat >> /etc/ssh/sshd_config << EOF
             # workaround
@@ -164,15 +153,15 @@ resources:
             net.ipv6.conf.default.disable_ipv6 = 1
             EOF
             useradd hadoop
-            mkdir -p $BIGDATA_WD
-            chown -R hadoop.hadoop $BIGDATA_WD
-            wget -O /tmp/hadoop-$HDOOP_V.tar.gz http://artifacts.pd.infn.it/packages/SMACT/misc/hadoop-$HDOOP_V.tar.gz
-            runuser -s /bin/bash -c "tar -C $BIGDATA_WD -zxf /tmp/hadoop-$HDOOP_V.tar.gz" -- hadoop
-            mv $BIGDATA_WD/hadoop-$HDOOP_V $BIGDATA_WD/hadoop
+            mkdir -p <%BIGDATA_WD%>
+            chown -R hadoop.hadoop <%BIGDATA_WD%>
+            wget -O /tmp/hadoop-<%HDOOP_V%>.tar.gz http://artifacts.pd.infn.it/packages/SMACT/misc/hadoop-<%HDOOP_V%>.tar.gz
+            runuser -s /bin/bash -c "tar -C <%BIGDATA_WD%> -zxf /tmp/hadoop-<%HDOOP_V%>.tar.gz" -- hadoop
+            mv <%BIGDATA_WD%>/hadoop-<%HDOOP_V%> <%BIGDATA_WD%>/hadoop
             cat > /etc/profile.d/hadoop.sh << EOF
             export JAVA_HOME=/usr/lib/jvm/jre-1.8.0-openjdk
             export JRE_HOME=/usr/lib/jvm/jre-1.8.0-openjdk/jre
-            export HADOOP_PREFIX=$BIGDATA_WD/hadoop
+            export HADOOP_PREFIX=<%BIGDATA_WD%>/hadoop
             export HADOOP_HOME=\$HADOOP_PREFIX
             export HADOOP_COMMON_HOME=\$HADOOP_PREFIX
             export HADOOP_CONF_DIR=\$HADOOP_PREFIX/etc/hadoop
@@ -183,15 +172,15 @@ resources:
             EOF
             mkdir /home/hadoop/datanode /home/hadoop/namenode
             chown hadoop.hadoop /home/hadoop/datanode /home/hadoop/namenode
-            cat > $BIGDATA_WD/hadoop/etc/hadoop/core-site.xml << EOF
+            cat > <%BIGDATA_WD%>/hadoop/etc/hadoop/core-site.xml << EOF
             <configuration>
               <property>
                 <name>fs.defaultFS</name>
-                <value>hdfs://$HOST_PRE-01.$S_DOMAIN.pd.infn.it:9000/</value>
+                <value>hdfs://<%HOST_PRE%>-00.<%S_DOMAIN%>.pd.infn.it:9000/</value>
               </property>
             </configuration>
             EOF
-            cat > $BIGDATA_WD/hadoop/etc/hadoop/hdfs-site.xml << EOF
+            cat > <%BIGDATA_WD%>/hadoop/etc/hadoop/hdfs-site.xml << EOF
             <configuration>
               <property>
                 <name>dfs.replication</name>
@@ -211,11 +200,11 @@ resources:
               </property>
               <property>
                 <name>dfs.secondary.http.address</name>
-                <value>$IP_FIX_NODE1:50090</value>
+                <value><%MASTER_IP%>:50090</value>
               </property>
             </configuration>
             EOF
-            cat > $BIGDATA_WD/hadoop/etc/hadoop/mapred-site.xml << EOF
+            cat > <%BIGDATA_WD%>/hadoop/etc/hadoop/mapred-site.xml << EOF
             <configuration>
               <property>
                 <name>mapreduce.framework.name</name>
@@ -223,15 +212,15 @@ resources:
               </property>
             </configuration>
             EOF
-            cat > $BIGDATA_WD/hadoop/etc/hadoop/yarn-site.xml << EOF
+            cat > <%BIGDATA_WD%>/hadoop/etc/hadoop/yarn-site.xml << EOF
             <configuration>
               <property>
                 <name>yarn.resourcemanager.hostname</name>
-                <value>$HOST_PRE-01</value>
+                <value><%HOST_PRE%>-00</value>
               </property>
               <property>
                 <name>yarn.nodemanager.hostname</name>
-                <value>$HOST_PRE-01</value>
+                <value><%HOST_PRE%>-00</value>
               </property>
               <property>
                 <name>yarn.nodemanager.aux-services</name>
@@ -239,26 +228,25 @@ resources:
               </property>
             </configuration>
             EOF
-            cat > $BIGDATA_WD/hadoop/etc/hadoop/slaves << EOF
-            $HOST_PRE-02.$S_DOMAIN.pd.infn.it
-            $HOST_PRE-03.$S_DOMAIN.pd.infn.it
+            cat > <%BIGDATA_WD%>/hadoop/etc/hadoop/slaves << EOF
+            <%HOST_PRE%>-01.<%S_DOMAIN%>.pd.infn.it
+            <%HOST_PRE%>-02.<%S_DOMAIN%>.pd.infn.it
             EOF
           params:
-            $IP_FIX_NODE1: { get_param: fixed_ip_node_1 }
-            $IP_FIX_NODE2: { get_param: fixed_ip_node_2 }
-            $IP_FIX_NODE3: { get_param: fixed_ip_node_3 }
-            $IP_NS_LIST:   { get_param: nameserver_list }
-            $HOST_NUMBER:  { get_param: node_id }
-            $HOST_PRE:     { get_param: net_host_prefix }
-            $S_DOMAIN:     { get_param: net_domain }
-            $HDOOP_V:      { get_param: hadoop_ver }
-            $BIGDATA_WD:   "/opt/bigdata"
+            <%IP_LIST%>:      { get_param: fixed_ip_list }
+            <%IP_NS_LIST%>:   { get_param: nameserver_list }
+            <%HOST_NUMBER%>:  { get_param: node_id }
+            <%HOST_PRE%>:     { get_param: net_host_prefix }
+            <%S_DOMAIN%>:     { get_param: net_domain }
+            <%HDOOP_V%>:      { get_param: hadoop_ver }
+            <%BIGDATA_WD%>:   "/opt/bigdata"
+            <%MASTER_IP%>:    { str_split: [' ', { get_param: fixed_ip_list }, 0] }
 
 #
 # Post-inst commands:
 # ssh-keyscan -t rsa1,rsa,dsa -f /etc/ssh/shosts.equiv >> /etc/ssh/ssh_known_hosts
 # systemctl restart sshd
-# (hadoop) hdfs namenode -format
+# (hadoop on master) hdfs namenode -format
 # (hadoop on master) start-dfs.sh
 
 #

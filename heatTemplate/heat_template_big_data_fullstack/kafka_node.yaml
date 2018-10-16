@@ -43,26 +43,6 @@ parameters:
     label: Sub network of the tenant
     description: This parameter has been set with the name of the tenant sub network.
 
-  fixed_ip:
-    type: string
-    label: Fixed ip for the current host
-    description: Fixed ip for the current host
-  
-  fixed_ip_node_1:
-    type: string
-    label: Fixed ip for node1 host
-    description: Fixed ip for node1 host
-
-  fixed_ip_node_2:
-    type: string
-    label: Fixed ip for node2 host
-    description: Fixed ip for node2 host
-
-  fixed_ip_node_3:
-    type: string
-    label: Fixed ip for node3 host
-    description: Fixed ip for node3 host
-
   nameserver_list:
     type: string
     label: Name server ip list
@@ -72,6 +52,11 @@ parameters:
     type: number
     label: Node ID
     description: Node ID
+
+  fixed_ip_list:
+    type: string
+    label: Fixed ip list for kafka nodes
+    description: Fixed ip list for kafka nodes
 
   sec_group_id:
     type: string
@@ -95,7 +80,10 @@ resources:
                 $KAFKA_ID: { get_param: node_id }
       network_id: { get_param: tenant_net_id }
       fixed_ips:
-        - { ip_address: { get_param: fixed_ip }, subnet: { get_param: tenant_subnet_name } }
+        - {
+            ip_address: { str_split: [ ' ', { get_param: fixed_ip_list }, { get_param: node_id } ] }, 
+            subnet: { get_param: tenant_subnet_name }
+          }
       security_groups: [ { get_param: sec_group_id }, ]
 
   kafka_instance:
@@ -118,29 +106,31 @@ resources:
         str_replace:
           template: |
             #!/bin/bash
+            hostnamectl set-hostname <%HOST_PRE%>-0<%HOST_NUMBER%>.<%S_DOMAIN%>.pd.infn.it
             cat > /etc/hosts << EOF
             127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
             ::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
-            $IP_FIX_NODE1 $HOST_PRE-01.$S_DOMAIN.pd.infn.it  $HOST_PRE-01
-            $IP_FIX_NODE2 $HOST_PRE-02.$S_DOMAIN.pd.infn.it  $HOST_PRE-02
-            $IP_FIX_NODE3 $HOST_PRE-03.$S_DOMAIN.pd.infn.it  $HOST_PRE-03
             EOF
+            idx=0
+            for ip_item in <%IP_LIST%> ; do
+              echo "${ip_item} <%HOST_PRE%>-0${idx}.<%S_DOMAIN%>.pd.infn.it <%HOST_PRE%>-0${idx}" >> /etc/hosts
+              idx=$[$idx+1]
+            done
             cat > /etc/resolv.conf << EOF
-            search $S_DOMAIN.pd.infn.it pd.infn.it
-            nameserver $IP_NS_LIST
+            search <%S_DOMAIN%>.pd.infn.it pd.infn.it
+            nameserver <%IP_NS_LIST%>
             EOF
-            hostnamectl set-hostname $HOST_PRE-0$HOST_NUMBER.$S_DOMAIN.pd.infn.it
             yum -y install epel-release yum-priorities vim-enhanced wget w3m java-1.8.0-openjdk
             wget -O /tmp/kafka_2.11-1.1.0.tgz http://artifacts.pd.infn.it/packages/SMACT/misc/kafka_2.11-1.1.0.tgz
-            mkdir -p $BIGDATA_WD
-            tar -C $BIGDATA_WD -zxf /tmp/kafka_2.11-1.1.0.tgz
-            mv $BIGDATA_WD/kafka_2.11-1.1.0 $BIGDATA_WD/kafka
+            mkdir -p <%BIGDATA_WD%>
+            tar -C <%BIGDATA_WD%> -zxf /tmp/kafka_2.11-1.1.0.tgz
+            mv <%BIGDATA_WD%>/kafka_2.11-1.1.0 <%BIGDATA_WD%>/kafka
             adduser kafka
             mkdir -p /var/lib/kafka/kafka-logs /var/cache/zookeeper /var/log/kafka
             chown kafka.kafka /var/lib/kafka/kafka-logs /var/cache/zookeeper /var/log/kafka
-            ln -s /var/log/kafka $BIGDATA_WD/kafka/log
-            cat > $BIGDATA_WD/kafka/config/server.properties << EOF
-            broker.id=$HOST_NUMBER
+            ln -s /var/log/kafka <%BIGDATA_WD%>/kafka/log
+            cat > <%BIGDATA_WD%>/kafka/config/server.properties << EOF
+            broker.id=<%HOST_NUMBER%>
             num.network.threads=3
             num.io.threads=8
             socket.send.buffer.bytes=102400
@@ -159,24 +149,26 @@ resources:
             zookeeper.connection.timeout.ms=6000
             group.initial.rebalance.delay.ms=0
             EOF
-            cat > $BIGDATA_WD/kafka/config/zookeeper.properties << EOF
+            cat > <%BIGDATA_WD%>/kafka/config/zookeeper.properties << EOF
             dataDir=/var/cache/zookeeper
             clientPort=2181
             tickTime=2000
             initLimit=5
             syncLimit=2
-            server.1=$HOST_PRE-01.$S_DOMAIN.pd.infn.it:2888:3888
-            server.2=$HOST_PRE-02.$S_DOMAIN.pd.infn.it:2888:3888
-            server.3=$HOST_PRE-03.$S_DOMAIN.pd.infn.it:2888:3888
             EOF
-            echo $HOST_NUMBER > /var/cache/zookeeper/myid
+            idx=0
+            for ip_item in <%IP_LIST%> ; do
+              echo "server.${idx}=<%HOST_PRE%>-0${idx}.<%S_DOMAIN%>.pd.infn.it:2888:3888" >> <%BIGDATA_WD%>/kafka/config/zookeeper.properties
+              idx=$[$idx+1]
+            done
+            echo <%HOST_NUMBER%> > /var/cache/zookeeper/myid
             cat > /usr/lib/systemd/system/zookeeper.service << EOF
             [Unit]
             Description=Zookeeper service
 
             [Service]
-            ExecStart=/usr/sbin/runuser -s /bin/bash -c "$BIGDATA_WD/kafka/bin/zookeeper-server-start.sh $BIGDATA_WD/kafka/config/zookeeper.properties" -- kafka
-            ExecStop=/usr/sbin/runuser -s /bin/bash -c "$BIGDATA_WD/kafka/bin/zookeeper-server-stop.sh" -- kafka
+            ExecStart=/usr/sbin/runuser -s /bin/bash -c "<%BIGDATA_WD%>/kafka/bin/zookeeper-server-start.sh <%BIGDATA_WD%>/kafka/config/zookeeper.properties" -- kafka
+            ExecStop=/usr/sbin/runuser -s /bin/bash -c "<%BIGDATA_WD%>/kafka/bin/zookeeper-server-stop.sh" -- kafka
 
             [Install]
             WantedBy=multi-user.target
@@ -188,21 +180,26 @@ resources:
             After=zookeeper.service
 
             [Service]
-            ExecStart=/usr/sbin/runuser -s /bin/bash -c "$BIGDATA_WD/kafka/bin/kafka-server-start.sh $BIGDATA_WD/kafka/config/server.properties" -- kafka
-            ExecStop=/usr/sbin/runuser -s /bin/bash -c "$BIGDATA_WD/kafka/bin/kafka-server-start.sh" -- kafka
+            ExecStart=/usr/sbin/runuser -s /bin/bash -c "<%BIGDATA_WD%>/kafka/bin/kafka-server-start.sh <%BIGDATA_WD%>/kafka/config/server.properties" -- kafka
+            ExecStop=/usr/sbin/runuser -s /bin/bash -c "<%BIGDATA_WD%>/kafka/bin/kafka-server-start.sh" -- kafka
 
             [Install]
             WantedBy=multi-user.target
             EOF
-            echo "export PATH=$PATH:$BIGDATA_WD/kafka/bin/" >> /etc/bashrc
+            echo "export PATH=$PATH:<%BIGDATA_WD%>/kafka/bin/" >> /etc/bashrc
             systemctl enable zookeeper kafka
           params:
-            $IP_FIX_NODE1: { get_param: fixed_ip_node_1 }
-            $IP_FIX_NODE2: { get_param: fixed_ip_node_2 }
-            $IP_FIX_NODE3: { get_param: fixed_ip_node_3 }
-            $IP_NS_LIST:   { get_param: nameserver_list } 
-            $HOST_NUMBER:  { get_param: node_id }
-            $HOST_PRE:     { get_param: net_host_prefix }
-            $S_DOMAIN:     { get_param: net_domain }
-            $BIGDATA_WD:   "/opt/bigdata"
+            <%IP_NS_LIST%>:   { get_param: nameserver_list }
+            <%IP_LIST%>:      { get_param: fixed_ip_list }
+            <%HOST_NUMBER%>:  { get_param: node_id }
+            <%HOST_PRE%>:     { get_param: net_host_prefix }
+            <%S_DOMAIN%>:     { get_param: net_domain }
+            <%BIGDATA_WD%>:   "/opt/bigdata"
 
+#
+#  Simple tests
+#    kafka-topics.sh --create --zookeeper localhost:2181 --replication-factor 1 --partitions 1 --topic mytopic
+#    kafka-console-producer.sh --broker-list localhost:9092 --topic mytopic
+#    kafka-topics.sh --list --zookeeper localhost:2181
+#    kafka-console-consumer.sh --bootstrap-server localhost:9092 --from-beginning --topic mytopic
+#

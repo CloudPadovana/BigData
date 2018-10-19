@@ -33,11 +33,6 @@ parameters:
     description: Prefix for the hostname of the cluster nodes.
     default: "hdfs-test"
 
-  net_domain:
-    type: string
-    label: Sub-domain for the cluster installation
-    description: Sub-domain for the cluster installation.
-
   tenant_net_id:
     type: string
     label: Network ID of the tenant
@@ -112,7 +107,7 @@ resources:
         str_replace:
           template: |
             #!/bin/bash
-            hostnamectl set-hostname <%HOST_PRE%>-0<%HOST_NUMBER%>.<%S_DOMAIN%>.pd.infn.it
+            hostnamectl set-hostname <%HOST_PRE%>-0<%HOST_NUMBER%>.pd.infn.it
             cat > /etc/hosts << EOF
             127.0.0.1 localhost localhost.localdomain localhost4 localhost4.localdomain4
             ::1       localhost localhost.localdomain localhost6 localhost6.localdomain6
@@ -122,12 +117,12 @@ resources:
             EOF
             idx=0
             for ip_item in <%IP_LIST%> ; do
-              echo "${ip_item} <%HOST_PRE%>-0${idx}.<%S_DOMAIN%>.pd.infn.it <%HOST_PRE%>-0${idx}" >> /etc/hosts
-              echo "<%HOST_PRE%>-0${idx}.<%S_DOMAIN%>.pd.infn.it" >> /etc/ssh/shosts.equiv
+              echo "${ip_item} <%HOST_PRE%>-0${idx}.pd.infn.it <%HOST_PRE%>-0${idx}" >> /etc/hosts
+              echo "<%HOST_PRE%>-0${idx}.pd.infn.it" >> /etc/ssh/shosts.equiv
               idx=$[$idx+1]
             done
             cat > /etc/resolv.conf << EOF
-            search <%S_DOMAIN%>.pd.infn.it pd.infn.it
+            search pd.infn.it
             nameserver <%IP_NS_LIST%>
             EOF
             cat >> /etc/ssh/sshd_config << EOF
@@ -176,7 +171,7 @@ resources:
             <configuration>
               <property>
                 <name>fs.defaultFS</name>
-                <value>hdfs://<%HOST_PRE%>-00.<%S_DOMAIN%>.pd.infn.it:9000/</value>
+                <value>hdfs://<%HOST_PRE%>-00.pd.infn.it:9000/</value>
               </property>
             </configuration>
             EOF
@@ -229,8 +224,8 @@ resources:
             </configuration>
             EOF
             cat > <%BIGDATA_WD%>/hadoop/etc/hadoop/slaves << EOF
-            <%HOST_PRE%>-01.<%S_DOMAIN%>.pd.infn.it
-            <%HOST_PRE%>-02.<%S_DOMAIN%>.pd.infn.it
+            <%HOST_PRE%>-01.pd.infn.it
+            <%HOST_PRE%>-02.pd.infn.it
             EOF
             wget -O /tmp/spark-2.3.2.tar.gz http://artifacts.pd.infn.it/packages/SMACT/misc/spark-2.3.2-bin-without-hadoop.tgz
             runuser -s /bin/bash -c "tar -C <%BIGDATA_WD%> -zxf /tmp/spark-2.3.2.tar.gz" -- <%BIGDATA_USR%>
@@ -240,15 +235,14 @@ resources:
             export SPARK_WORKER_PORT=<%SPARK_WPORT%>
             EOF
             cat > <%BIGDATA_WD%>/spark/conf/slaves << EOF
-            <%HOST_PRE%>-01.<%S_DOMAIN%>.pd.infn.it
-            <%HOST_PRE%>-02.<%S_DOMAIN%>.pd.infn.it
+            <%HOST_PRE%>-01.pd.infn.it
+            <%HOST_PRE%>-02.pd.infn.it
             EOF
           params:
             <%IP_LIST%>:      { get_param: fixed_ip_list }
             <%IP_NS_LIST%>:   { get_param: nameserver_list }
             <%HOST_NUMBER%>:  { get_param: node_id }
             <%HOST_PRE%>:     { get_param: net_host_prefix }
-            <%S_DOMAIN%>:     { get_param: net_domain }
             <%HDOOP_V%>:      { get_param: hadoop_ver }
             <%BIGDATA_WD%>:   "/opt/bigdata"
             <%BIGDATA_USR%>:  "bigdatausr"
@@ -262,7 +256,7 @@ resources:
 # (bigdatausr on master) hdfs namenode -format
 # (bigdatausr on master) start-dfs.sh
 # (bigdatausr on master) start-master.sh
-# (bigdatausr on slave) start-slave.sh spark://hdfs-test-00.smact.pd.infn.it:7077
+# (bigdatausr on slave) start-slave.sh spark://hdfs-test-00.pd.infn.it:7077
 #
 # https://www.linode.com/docs/databases/hadoop/how-to-install-and-set-up-hadoop-cluster/
 #

@@ -28,11 +28,6 @@ parameters:
     description: Prefix for the hostname of the cluster nodes.
     default: "kafka-test"
 
-  net_domain:
-    type: string
-    label: Sub-domain for the cluster installation
-    description: Sub-domain for the cluster installation.
-
   tenant_net_id:
     type: string
     label: Network ID of the tenant
@@ -106,18 +101,18 @@ resources:
         str_replace:
           template: |
             #!/bin/bash
-            hostnamectl set-hostname <%HOST_PRE%>-0<%HOST_NUMBER%>.<%S_DOMAIN%>.pd.infn.it
+            hostnamectl set-hostname <%HOST_PRE%>-0<%HOST_NUMBER%>.pd.infn.it
             cat > /etc/hosts << EOF
             127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
             ::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
             EOF
             idx=0
             for ip_item in <%IP_LIST%> ; do
-              echo "${ip_item} <%HOST_PRE%>-0${idx}.<%S_DOMAIN%>.pd.infn.it <%HOST_PRE%>-0${idx}" >> /etc/hosts
+              echo "${ip_item} <%HOST_PRE%>-0${idx}.pd.infn.it <%HOST_PRE%>-0${idx}" >> /etc/hosts
               idx=$[$idx+1]
             done
             cat > /etc/resolv.conf << EOF
-            search <%S_DOMAIN%>.pd.infn.it pd.infn.it
+            search pd.infn.it
             nameserver <%IP_NS_LIST%>
             EOF
             yum -y install epel-release yum-priorities vim-enhanced wget w3m java-1.8.0-openjdk
@@ -125,9 +120,9 @@ resources:
             mkdir -p <%BIGDATA_WD%>
             tar -C <%BIGDATA_WD%> -zxf /tmp/kafka_2.11-1.1.0.tgz
             mv <%BIGDATA_WD%>/kafka_2.11-1.1.0 <%BIGDATA_WD%>/kafka
-            adduser kafka
+            adduser <%BIGDATA_USR%>
             mkdir -p /var/lib/kafka/kafka-logs /var/cache/zookeeper /var/log/kafka
-            chown kafka.kafka /var/lib/kafka/kafka-logs /var/cache/zookeeper /var/log/kafka
+            chown <%BIGDATA_USR%>.<%BIGDATA_USR%> /var/lib/kafka/kafka-logs /var/cache/zookeeper /var/log/kafka
             ln -s /var/log/kafka <%BIGDATA_WD%>/kafka/log
             cat > <%BIGDATA_WD%>/kafka/config/server.properties << EOF
             broker.id=<%HOST_NUMBER%>
@@ -158,7 +153,7 @@ resources:
             EOF
             idx=0
             for ip_item in <%IP_LIST%> ; do
-              echo "server.${idx}=<%HOST_PRE%>-0${idx}.<%S_DOMAIN%>.pd.infn.it:2888:3888" >> <%BIGDATA_WD%>/kafka/config/zookeeper.properties
+              echo "server.${idx}=<%HOST_PRE%>-0${idx}.pd.infn.it:2888:3888" >> <%BIGDATA_WD%>/kafka/config/zookeeper.properties
               idx=$[$idx+1]
             done
             echo <%HOST_NUMBER%> > /var/cache/zookeeper/myid
@@ -167,8 +162,8 @@ resources:
             Description=Zookeeper service
 
             [Service]
-            ExecStart=/usr/sbin/runuser -s /bin/bash -c "<%BIGDATA_WD%>/kafka/bin/zookeeper-server-start.sh <%BIGDATA_WD%>/kafka/config/zookeeper.properties" -- kafka
-            ExecStop=/usr/sbin/runuser -s /bin/bash -c "<%BIGDATA_WD%>/kafka/bin/zookeeper-server-stop.sh" -- kafka
+            ExecStart=/usr/sbin/runuser -s /bin/bash -c "<%BIGDATA_WD%>/kafka/bin/zookeeper-server-start.sh <%BIGDATA_WD%>/kafka/config/zookeeper.properties" -- <%BIGDATA_USR%>
+            ExecStop=/usr/sbin/runuser -s /bin/bash -c "<%BIGDATA_WD%>/kafka/bin/zookeeper-server-stop.sh" -- <%BIGDATA_USR%>
 
             [Install]
             WantedBy=multi-user.target
@@ -180,8 +175,8 @@ resources:
             After=zookeeper.service
 
             [Service]
-            ExecStart=/usr/sbin/runuser -s /bin/bash -c "<%BIGDATA_WD%>/kafka/bin/kafka-server-start.sh <%BIGDATA_WD%>/kafka/config/server.properties" -- kafka
-            ExecStop=/usr/sbin/runuser -s /bin/bash -c "<%BIGDATA_WD%>/kafka/bin/kafka-server-start.sh" -- kafka
+            ExecStart=/usr/sbin/runuser -s /bin/bash -c "<%BIGDATA_WD%>/kafka/bin/kafka-server-start.sh <%BIGDATA_WD%>/kafka/config/server.properties" -- <%BIGDATA_USR%>
+            ExecStop=/usr/sbin/runuser -s /bin/bash -c "<%BIGDATA_WD%>/kafka/bin/kafka-server-start.sh" -- <%BIGDATA_USR%>
 
             [Install]
             WantedBy=multi-user.target
@@ -193,8 +188,8 @@ resources:
             <%IP_LIST%>:      { get_param: fixed_ip_list }
             <%HOST_NUMBER%>:  { get_param: node_id }
             <%HOST_PRE%>:     { get_param: net_host_prefix }
-            <%S_DOMAIN%>:     { get_param: net_domain }
             <%BIGDATA_WD%>:   "/opt/bigdata"
+            <%BIGDATA_USR%>:  "bigdatausr"
 
 #
 #  Simple tests

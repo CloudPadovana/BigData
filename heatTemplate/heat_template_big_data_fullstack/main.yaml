@@ -45,12 +45,6 @@ parameters:
     description: This parameter has been set with the name of the tenant WAN sub network.
     default: "sub-SMACT-wan"
 
-  net_domain:
-    type: string
-    label: Sub-domain for the cluster installation
-    description: Sub-domain for the cluster installation.
-    default: "smact"
-
   kafka_ip_list:
     type: string
     label: Fixed ip list for hdfs nodes
@@ -124,7 +118,6 @@ resources:
       image_to_use: { get_param: image_to_use }
       flavor_to_use: { get_param: flavor_to_use }
       key_name_user: { get_param: key_name_user }
-      net_domain: { get_param: net_domain }
       tenant_net_id: { get_param: lan_id }
       tenant_subnet_name: { get_param: lan_subnet_name }
       fixed_ip_list: { get_param: kafka_ip_list }
@@ -139,7 +132,6 @@ resources:
       image_to_use: { get_param: image_to_use }
       flavor_to_use: { get_param: flavor_to_use }
       key_name_user: { get_param: key_name_user }
-      net_domain: { get_param: net_domain }
       tenant_net_id: { get_param: lan_id }
       tenant_subnet_name: { get_param: lan_subnet_name }
       fixed_ip_list: { get_param: kafka_ip_list }
@@ -154,7 +146,6 @@ resources:
       image_to_use: { get_param: image_to_use }
       flavor_to_use: { get_param: flavor_to_use }
       key_name_user: { get_param: key_name_user }
-      net_domain: { get_param: net_domain }
       tenant_net_id: { get_param: lan_id }
       tenant_subnet_name: { get_param: lan_subnet_name }
       fixed_ip_list: { get_param: kafka_ip_list }
@@ -169,7 +160,6 @@ resources:
       image_to_use: { get_param: image_to_use }
       flavor_to_use: { get_param: flavor_to_use }
       key_name_user: { get_param: key_name_user }
-      net_domain: { get_param: net_domain }
       tenant_net_id: { get_param: lan_id }
       tenant_subnet_name: { get_param: lan_subnet_name }
       fixed_ip_list: { get_param: hdfs_ip_list }
@@ -184,7 +174,6 @@ resources:
       image_to_use: { get_param: image_to_use }
       flavor_to_use: { get_param: flavor_to_use }
       key_name_user: { get_param: key_name_user }
-      net_domain: { get_param: net_domain }
       tenant_net_id: { get_param: lan_id }
       tenant_subnet_name: { get_param: lan_subnet_name }
       fixed_ip_list: { get_param: hdfs_ip_list }
@@ -199,7 +188,6 @@ resources:
       image_to_use: { get_param: image_to_use }
       flavor_to_use: { get_param: flavor_to_use }
       key_name_user: { get_param: key_name_user }
-      net_domain: { get_param: net_domain }
       tenant_net_id: { get_param: lan_id }
       tenant_subnet_name: { get_param: lan_subnet_name }
       fixed_ip_list: { get_param: hdfs_ip_list }

@@ -142,7 +142,7 @@ resources:
                 SendEnv LC_IDENTIFICATION LC_ALL LANGUAGE
                 SendEnv XMODIFIERS
             EOF
-            yum install -y vim-enhanced tar wget epel-release java-1.8.0-openjdk
+            yum install -y vim-enhanced tar wget epel-release java-1.8.0-openjdk python2-pip
             cat >> /etc/sysctl.conf << EOF
             net.ipv6.conf.all.disable_ipv6 = 1
             net.ipv6.conf.default.disable_ipv6 = 1
@@ -163,6 +163,7 @@ resources:
             export HADOOP_HDFS_HOME=\$HADOOP_PREFIX
             export HADOOP_MAPRED_HOME=\$HADOOP_PREFIX
             export HADOOP_YARN_HOME=\$HADOOP_PREFIX
+            export PYTHONPATH=\$PYTHONPATH:<%BIGDATA_WD%>/spark/python
             export PATH=\$PATH:<%BIGDATA_WD%>/hadoop/sbin:<%BIGDATA_WD%>/hadoop/bin:<%BIGDATA_WD%>/spark/bin:<%BIGDATA_WD%>/spark/sbin
             EOF
             mkdir /home/<%BIGDATA_USR%>/datanode /home/<%BIGDATA_USR%>/namenode
@@ -227,6 +228,9 @@ resources:
             <%HOST_PRE%>-01.pd.infn.it
             <%HOST_PRE%>-02.pd.infn.it
             EOF
+            if [ <%HOST_NUMBER%> -eq 0 ]; then
+              runuser -s /bin/bash -c "JAVA_HOME=/usr/lib/jvm/jre-1.8.0-openjdk <%BIGDATA_WD%>/hadoop/bin/hdfs namenode -format" -- <%BIGDATA_USR%>
+            fi
             wget -O /tmp/spark-2.3.2.tar.gz http://artifacts.pd.infn.it/packages/SMACT/misc/spark-2.3.2-bin-without-hadoop.tgz
             runuser -s /bin/bash -c "tar -C <%BIGDATA_WD%> -zxf /tmp/spark-2.3.2.tar.gz" -- <%BIGDATA_USR%>
             mv <%BIGDATA_WD%>/spark-2.3.2-bin-without-hadoop <%BIGDATA_WD%>/spark
@@ -238,6 +242,7 @@ resources:
             <%HOST_PRE%>-01.pd.infn.it
             <%HOST_PRE%>-02.pd.infn.it
             EOF
+            yum -y install python2-py4j python2-root python2-numpy python-pandas
           params:
             <%IP_LIST%>:      { get_param: fixed_ip_list }
             <%IP_NS_LIST%>:   { get_param: nameserver_list }
@@ -259,6 +264,12 @@ resources:
 # (bigdatausr on slave) start-slave.sh spark://hdfs-test-00.pd.infn.it:7077
 #
 # https://www.linode.com/docs/databases/hadoop/how-to-install-and-set-up-hadoop-cluster/
+# https://pandas.pydata.org/
+# http://www.numpy.org/
+#
+# latest package for spark-root in maven central: "org.diana-hep:spark-root_2.11:0.1.16"
+# python call:
+#   spark.read.format("org.dianahep.sparkroot.experimental").load("hdfs:///path/to/file.root")
 #
 
 

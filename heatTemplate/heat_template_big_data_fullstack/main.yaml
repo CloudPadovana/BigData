@@ -88,28 +88,39 @@ resources:
    properties:
       length: 8 
 
+#  secgroup_bigstack_sg:
+#    type: OS::Neutron::SecurityGroup
+#    properties:
+#      description: "Access to big data stack services for all VM in this security group"
+#      name: "secgroup-bigdata-stack"
+#      rules: [
+#        {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "remote_mode": remote_ip_prefix, "protocol": ICMP},
+#        {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 22, "port_range_max": 22, "remote_mode": remote_ip_prefix, "protocol": TCP},
+#        {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 2181, "port_range_max": 2181, "remote_mode": remote_ip_prefix, "protocol": TCP}, 
+#        {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 2888, "port_range_max": 2888, "remote_mode": remote_ip_prefix, "protocol": TCP},
+#        {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 3888, "port_range_max": 3888, "remote_mode": remote_ip_prefix, "protocol": TCP},
+#        {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 4040, "port_range_max": 4040, "remote_mode": remote_ip_prefix, "protocol": TCP},
+#        {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 4400, "port_range_max": 4400, "remote_mode": remote_ip_prefix, "protocol": TCP},
+#        {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 5050, "port_range_max": 5050, "remote_mode": remote_ip_prefix, "protocol": TCP},
+#        {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 6066, "port_range_max": 6066, "remote_mode": remote_ip_prefix, "protocol": TCP},
+#        {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 7077, "port_range_max": 7077, "remote_mode": remote_ip_prefix, "protocol": TCP},
+#        {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 8080, "port_range_max": 8080, "remote_mode": remote_ip_prefix, "protocol": TCP},
+#        {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 8081, "port_range_max": 8081, "remote_mode": remote_ip_prefix, "protocol": TCP},
+#        {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 8443, "port_range_max": 8443, "remote_mode": remote_ip_prefix, "protocol": TCP},
+#        {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 9000, "port_range_max": 9000, "remote_mode": remote_ip_prefix, "protocol": TCP},
+#        {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 9092, "port_range_max": 9092, "remote_mode": remote_ip_prefix, "protocol": TCP}, 
+#        {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 50010, "port_range_max": 50090, "remote_mode": remote_ip_prefix, "protocol": TCP}
+#      ]
+
   secgroup_bigstack_sg:
     type: OS::Neutron::SecurityGroup
     properties:
       description: "Access to big data stack services for all VM in this security group"
-      name: "secgroup-bigdata-stack"
+      name: "secgroup-bigdata-stack-all"
       rules: [
         {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "remote_mode": remote_ip_prefix, "protocol": ICMP},
         {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 22, "port_range_max": 22, "remote_mode": remote_ip_prefix, "protocol": TCP},
-        {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 2181, "port_range_max": 2181, "remote_mode": remote_ip_prefix, "protocol": TCP}, 
-        {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 2888, "port_range_max": 2888, "remote_mode": remote_ip_prefix, "protocol": TCP},
-        {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 3888, "port_range_max": 3888, "remote_mode": remote_ip_prefix, "protocol": TCP},
-        {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 4040, "port_range_max": 4040, "remote_mode": remote_ip_prefix, "protocol": TCP},
-        {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 4400, "port_range_max": 4400, "remote_mode": remote_ip_prefix, "protocol": TCP},
-        {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 5050, "port_range_max": 5050, "remote_mode": remote_ip_prefix, "protocol": TCP},
-        {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 6066, "port_range_max": 6066, "remote_mode": remote_ip_prefix, "protocol": TCP},
-        {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 7077, "port_range_max": 7077, "remote_mode": remote_ip_prefix, "protocol": TCP},
-        {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 8080, "port_range_max": 8080, "remote_mode": remote_ip_prefix, "protocol": TCP},
-        {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 8081, "port_range_max": 8081, "remote_mode": remote_ip_prefix, "protocol": TCP},
-        {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 8443, "port_range_max": 8443, "remote_mode": remote_ip_prefix, "protocol": TCP},
-        {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 9000, "port_range_max": 9000, "remote_mode": remote_ip_prefix, "protocol": TCP},
-        {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 9092, "port_range_max": 9092, "remote_mode": remote_ip_prefix, "protocol": TCP}, 
-        {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 50010, "port_range_max": 50090, "remote_mode": remote_ip_prefix, "protocol": TCP}
+        {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 1024, "port_range_max": 65535, "remote_mode": remote_ip_prefix, "protocol": TCP}
       ]
 
   kafka_node_1:

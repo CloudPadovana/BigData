@@ -1,0 +1,243 @@
+heat_template_version: 2017-02-24
+
+parameters:
+
+  image_to_use: { type: string, label: "Image name or ID", default: fb2906c4-56a1-45a1-9041-485716cb7016 }
+
+  flavor_to_use: { type: string, label: "Flavor name", default: cldareapd.small }
+
+  key_name_user: { type: string, label: "User ssh public key" }
+
+  root_pw: { type: string, label: "Root password" }
+
+  avail_zone: { type: string, label: "Availability Zone", default: "nova" }
+
+  host_prefix: { type: string, label: Hostname prefix", default: "bigdata-test" }
+
+  lan_net_id: { type: string, label: "LAN Network ID", default: d68e615a-7716-4e95-a413-492339300b58 }
+  
+  lan_subnet_name: { type: string, label: "LAN Sub network", default: "sub-SMACT-lan" }
+
+  lan_net_ippref: { type: string, label: "LAN IPv4 prefix", default: "10.64.48" }
+
+  wan_net_id: { type: string, label: "WAN Network ID", default: "undefined" }
+
+  wan_subnet_name: { type: string, label: "WAN Sub network", default: "undefined" }
+
+  wan_net_ippref: { type: string, label: "WAN IPv4 prefix", default: "undefined" }
+
+  nameserver_list: { type: string, label: "Name server ip list", default:  "192.84.143.31 192.84.143.16" }
+
+  sec_group_id: { type: string, label: "Security Group ID", default: "6ed75546-8a4b-4546-81b8-e26e1d664b4e" }
+
+  node_type: { type: string, label: "Node type", default: "generic" }
+
+  node_id: { type: number, label: "Node ID", default: 70 }
+
+  kafka_ids: { type: string, label: "Kafka host id", default: "70 71 72" }
+
+  spark_ids: { type: string, label: "Spark host id", default: "80 81 82" }
+
+conditions:
+
+  public_access: { not: { equals: [ { get_param: wan_net_id }, "undefined" ] } }
+
+  internal_access: { not: { equals: [ { get_param: lan_net_id }, "undefined" ] } }
+
+
+resources:
+
+  internal_port:
+    type: OS::Neutron::Port
+    condition: internal_access
+    properties:
+      name: { str_replace: { template: "internal-port-<%node_id%>", params: { <%node_id%>: { get_param: node_id } } } }
+      network_id: { get_param: lan_net_id }
+      fixed_ips:
+        - {
+            subnet: { get_param: lan_subnet_name },
+            ip_address: {
+              str_replace: {
+                template: "<%ippref%>.<%node_id%>",
+                params: { <%ippref%>: { get_param: lan_net_ippref }, <%node_id%>: { get_param: node_id } }
+              }
+            }
+          }
+      security_groups: [ { get_param: sec_group_id }, ]
+
+
+  public_port:
+    type: OS::Neutron::Port
+    condition: public_access
+    properties:
+      name: { str_replace: { template: "public-port-<%node_id%>", params: { <%node_id%>: { get_param: node_id } } } }
+      network_id: { get_param: wan_net_id }
+      fixed_ips:
+        - {
+            subnet: { get_param: wan_subnet_name },
+            ip_address: {
+                str_replace: {
+                  template: "<%ippref%>.<%node_id%>",
+                  params: { <%ippref%>: { get_param: wan_net_ippref }, <%node_id%>: { get_param: node_id } }
+                }
+            }
+          }
+      security_groups: [ { get_param: sec_group_id }, ]
+
+  server_instance:
+    type: OS::Nova::Server
+    properties:
+      name: { str_replace: { template: "server-instance-<%node_id%>", params: { <%node_id%>: { get_param: node_id } } } }
+      key_name: { get_param: key_name_user }
+      image: { get_param: image_to_use }
+      flavor: { get_param: flavor_to_use }
+      admin_pass: { get_param: root_pw }
+      networks:
+        - port: { if: [ "internal_access", { get_resource: internal_port }, { get_resource: public_port } ] }
+      user_data_format: RAW
+      user_data:
+        str_replace:
+          template: |
+            #!/usr/bin/python
+            import sys, os, os.path, re
+            from subprocess import call
+            try:
+              #
+              host_prefix = "<%host_pref%>"
+              node_id = <%node_id%>
+              lan_ippre = "<%lan_ippre%>"
+              nameservers = "<%ns_list%>"
+              node_type = "<%node_type%>"
+              servername = "%s-%d.pd.infn.it" % (host_prefix, node_id)
+              workdir = "/opt/bigdata"
+              bguser = "bigdatausr"
+              kafkaIDs = map(lambda x: int(x), re.findall(r'\d+', "<%kafka_ids%>"))
+              sparkIDs = map(lambda x: int(x), re.findall(r'\d+', "<%spark_ids%>"))
+              #
+              call("hostnamectl set-hostname %s" % servername, shell=True)
+              #
+              with open("/etc/hosts", "w") as hostsfile:
+                hostsfile.write("127.0.0.1 localhost.pd.infn.it localhost\n")
+                hostsfile.write("::1       localhost.pd.infn.it localhost\n")
+                for item in kafkaIDs + sparkIDs:
+                  tmpn = "%s-%d" % (host_prefix, item)
+                  hostsfile.write("%s.%d %s.pd.infn.it %s\n" % (lan_ippre, item, tmpn, tmpn))
+              #
+              with open("/etc/ssh/shosts.equiv", "w") as equivfile:
+                for item in kafkaIDs + sparkIDs:
+                  equivfile.write("%s-%d.pd.infn.it\n" % (host_prefix, item))
+              #
+              with open("/etc/resolv.conf", "w") as resolvfile:
+                resolvfile.write("search pd.infn.it\n")
+                resolvfile.write("nameserver %s\n" % nameservers)
+              #
+              with open("/etc/ssh/sshd_config", "a") as sshdfile:
+                sshdfile.write("# workaround\n")
+                sshdfile.write("HostbasedAuthentication yes\n")
+                sshdfile.write("IgnoreUserKnownHosts yes\n")
+                sshdfile.write("IgnoreRhosts yes\n")
+              #
+              with open("/etc/ssh/ssh_config", "w") as sshfile:
+                sshfile.write("Host *\n")
+                sshfile.write("    HostbasedAuthentication yes\n")
+                sshfile.write("    EnableSSHKeysign yes\n")
+                sshfile.write("    GSSAPIAuthentication no\n")
+                sshfile.write("    ForwardX11Trusted yes\n")
+                sshfile.write("    SendEnv LANG LC_CTYPE LC_NUMERIC LC_TIME LC_COLLATE LC_MONETARY LC_MESSAGES\n")
+                sshfile.write("    SendEnv LC_PAPER LC_NAME LC_ADDRESS LC_TELEPHONE LC_MEASUREMENT\n")
+                sshfile.write("    SendEnv LC_IDENTIFICATION LC_ALL LANGUAGE\n")
+                sshfile.write("    SendEnv XMODIFIERS\n")
+              #
+              if "kafka" in node_type:
+                pkglist = "epel-release yum-priorities vim-enhanced wget w3m java-1.8.0-openjdk"
+                kafkaver = "2.11-1.1.0"
+                repo_url = "http://artifacts.pd.infn.it/packages/SMACT/misc"
+                #
+                call("yum -y install %s" % pkglist, shell=True)
+                os.makedirs(workdir, 0770)
+                call("wget -O /tmp/kafka_%s.tgz %s/kafka_%s.tgz" % (kafkaver, repo_url, kafkaver), shell=True)
+                call("tar -C %s -zxf /tmp/kafka_%s.tgz" % (workdir, kafkaver), shell=True)
+                os.rename("%s/kafka_%s" % (workdir, kafkaver), "%s/kafka" % workdir)
+                call("adduser %s" % bguser, shell=True)
+                for d_item in [ "/var/lib/kafka/kafka-logs", "/var/cache/zookeeper", "/var/log/kafka" ]:
+                  os.makedirs(d_item, 0770)
+                  call("chown %s.%s %s" % (bguser, bguser, d_item), shell=True)
+                #
+                with open("%s/kafka/config/server.properties" % workdir, "w") as kconf:
+                  kconf.write("broker.id=%d\n" % node_id)
+                  kconf.write("num.network.threads=3\n")
+                  kconf.write("num.io.threads=8\n")
+                  kconf.write("socket.send.buffer.bytes=102400\n")
+                  kconf.write("socket.receive.buffer.bytes=102400\n")
+                  kconf.write("socket.request.max.bytes=104857600\n")
+                  kconf.write("log.dirs=/var/lib/kafka/kafka-logs\n")
+                  kconf.write("num.partitions=1\n")
+                  kconf.write("num.recovery.threads.per.data.dir=1\n")
+                  kconf.write("offsets.topic.replication.factor=1\n")
+                  kconf.write("transaction.state.log.replication.factor=1\n")
+                  kconf.write("transaction.state.log.min.isr=1\n")
+                  kconf.write("log.retention.hours=168\n")
+                  kconf.write("log.segment.bytes=1073741824\n")
+                  kconf.write("log.retention.check.interval.ms=300000\n")
+                  kconf.write("zookeeper.connect=localhost:2181\n")
+                  kconf.write("zookeeper.connection.timeout.ms=6000\n")
+                  kconf.write("group.initial.rebalance.delay.ms=0\n")
+                #
+                with open("%s/kafka/config/zookeeper.properties" % workdir, "w") as zconf:
+                  zconf.write("dataDir=/var/cache/zookeeper\n")
+                  zconf.write("clientPort=2181\n")
+                  zconf.write("tickTime=2000\n")
+                  zconf.write("initLimit=5\n")
+                  zconf.write("syncLimit=2\n")
+                  for item in kafkaIDs:
+                    zconf.write("server.%d=%s-%d.pd.infn.it:2888:3888\n" % (item, host_prefix, item))
+                #
+                with open("/var/cache/zookeeper/myid", "w") as idfile:
+                  idfile.write("%d\n" % node_id)
+                #
+                with open("/usr/lib/systemd/system/zookeeper.service", "w") as zsrvfile:
+                  zsrvfile.write("[Unit]\nDescription=Zookeeper service\n\n")
+                  zsrvfile.write("[Service]\nExecStart=/usr/sbin/runuser -s /bin/bash ")
+                  zsrvfile.write("-c \"%s/kafka/bin/zookeeper-server-start.sh " % workdir)
+                  zsrvfile.write("%s/kafka/config/zookeeper.properties\" -- %s\n" % (workdir, bguser))
+                  zsrvfile.write("ExecStop=/usr/sbin/runuser -s /bin/bash ")
+                  zsrvfile.write("-c \"%s/kafka/bin/zookeeper-server-stop.sh\" -- %s\n\n" % (workdir, bguser))
+                  zsrvfile.write("[Install]\nWantedBy=multi-user.target\n")
+                #
+                with open("/usr/lib/systemd/system/kafka.service", "w") as ksrvfile:
+                  ksrvfile.write("[Unit]\nDescription=Kafka broker\n")
+                  ksrvfile.write("Wants=zookeeper.service\nAfter=zookeeper.service\n\n")
+                  ksrvfile.write("[Service]\nExecStart=/usr/sbin/runuser -s /bin/bash ")
+                  ksrvfile.write("-c \"%s/kafka/bin/kafka-server-start.sh " %workdir)
+                  ksrvfile.write("%s/kafka/config/server.properties\" -- %s\n"% (workdir, bguser))
+                  ksrvfile.write("ExecStop=/usr/sbin/runuser -s /bin/bash ")
+                  ksrvfile.write("-c \"%s/kafka/bin/kafka-server-start.sh\" -- %s\n\n" % (workdir, bguser))
+                  ksrvfile.write("[Install]\nWantedBy=multi-user.target\n")
+                #
+                with open("/etc/bashrc", "a") as rcfile:
+                  rcfile.write("export PATH=$PATH:%s/kafka/bin/\n" % workdir) 
+              #
+              if "spark" in node_type:
+                pass
+            except:
+              pass
+          params:
+            <%host_pref%>: { get_param: host_prefix }
+            <%lan_ippre%>: { get_param: lan_net_ippref }
+            <%node_id%>:   { get_param: node_id }
+            <%kafka_ids%>: { get_param: kafka_ids }
+            <%spark_ids%>: { get_param: spark_ids }
+            <%ns_list%>:   { get_param: nameserver_list }
+            <%node_type%>: { get_param: node_type }
+
+
+
+
+
+
+
+
+
+
+
+

@@ -2,9 +2,9 @@ heat_template_version: 2017-02-24
 
 parameters:
 
-  image_to_use: { type: string, label: "Image name or ID", default: fb2906c4-56a1-45a1-9041-485716cb7016 }
+  image_to_use: { type: string, label: "Image name or ID" }
 
-  flavor_to_use: { type: string, label: "Flavor name", default: cldareapd.small }
+  flavor_to_use: { type: string, label: "Flavor name" }
 
   key_name_user: { type: string, label: "User ssh public key" }
 
@@ -14,11 +14,11 @@ parameters:
 
   host_prefix: { type: string, label: Hostname prefix", default: "bigdata-test" }
 
-  lan_net_id: { type: string, label: "LAN Network ID", default: d68e615a-7716-4e95-a413-492339300b58 }
+  lan_net_id: { type: string, label: "LAN Network ID" }
   
-  lan_subnet_name: { type: string, label: "LAN Sub network", default: "sub-SMACT-lan" }
+  lan_subnet_name: { type: string, label: "LAN Sub network" }
 
-  lan_net_ippref: { type: string, label: "LAN IPv4 prefix", default: "10.64.48" }
+  lan_net_ippref: { type: string, label: "LAN IPv4 prefix" }
 
   wan_net_id: { type: string, label: "WAN Network ID", default: "undefined" }
 
@@ -26,17 +26,17 @@ parameters:
 
   wan_net_ippref: { type: string, label: "WAN IPv4 prefix", default: "undefined" }
 
-  nameserver_list: { type: string, label: "Name server ip list", default:  "192.84.143.31 192.84.143.16" }
+  nameserver_list: { type: string, label: "Name server ip list" }
 
-  sec_group_id: { type: string, label: "Security Group ID", default: "6ed75546-8a4b-4546-81b8-e26e1d664b4e" }
+  sec_group_id: { type: string, label: "Security Group ID" }
 
   node_type: { type: string, label: "Node type", default: "generic" }
 
-  node_id: { type: number, label: "Node ID", default: 70 }
+  node_id: { type: number, label: "Node ID" }
 
-  kafka_ids: { type: string, label: "Kafka host id", default: "70 71 72" }
+  kafka_ids: { type: string, label: "Kafka host id" }
 
-  spark_ids: { type: string, label: "Spark host id", default: "80 81 82" }
+  spark_ids: { type: string, label: "Spark host id" }
 
 conditions:
 
@@ -99,7 +99,7 @@ resources:
         str_replace:
           template: |
             #!/usr/bin/python
-            import sys, os, os.path, re
+            import sys, os, os.path, re, traceback
             from subprocess import call
             try:
               #
@@ -113,6 +113,7 @@ resources:
               bguser = "bigdatausr"
               kafkaIDs = map(lambda x: int(x), re.findall(r'\d+', "<%kafka_ids%>"))
               sparkIDs = map(lambda x: int(x), re.findall(r'\d+', "<%spark_ids%>"))
+              repo_url = "http://artifacts.pd.infn.it/packages/SMACT/misc"
               #
               call("hostnamectl set-hostname %s" % servername, shell=True)
               #
@@ -148,18 +149,22 @@ resources:
                 sshfile.write("    SendEnv LC_IDENTIFICATION LC_ALL LANGUAGE\n")
                 sshfile.write("    SendEnv XMODIFIERS\n")
               #
+              with open("/etc/sysctl.conf", "a") as sysfile:
+                sysfile.write("net.ipv6.conf.all.disable_ipv6 = 1\n")
+                sysfile.write("net.ipv6.conf.default.disable_ipv6 = 1\n")
+              #
+              call("useradd -d %s %s" % (workdir, bguser), shell=True)
+              runcmd = "runuser -s /bin/bash -c \"%s\" -- " + bguser
+              #
               if "kafka" in node_type:
-                pkglist = "epel-release yum-priorities vim-enhanced wget w3m java-1.8.0-openjdk"
+                pkglist = "epel-release yum-priorities vim-enhanced wget java-1.8.0-openjdk"
                 kafkaver = "2.11-1.1.0"
-                repo_url = "http://artifacts.pd.infn.it/packages/SMACT/misc"
                 #
                 call("yum -y install %s" % pkglist, shell=True)
-                os.makedirs(workdir, 0770)
                 call("wget -O /tmp/kafka_%s.tgz %s/kafka_%s.tgz" % (kafkaver, repo_url, kafkaver), shell=True)
                 call("tar -C %s -zxf /tmp/kafka_%s.tgz" % (workdir, kafkaver), shell=True)
                 os.rename("%s/kafka_%s" % (workdir, kafkaver), "%s/kafka" % workdir)
-                call("adduser %s" % bguser, shell=True)
-                for d_item in [ "/var/lib/kafka/kafka-logs", "/var/cache/zookeeper", "/var/log/kafka" ]:
+                for d_item in [ "/var/lib/kafka", "/var/lib/kafka/kafka-logs", "/var/cache/zookeeper" ]:
                   os.makedirs(d_item, 0770)
                   call("chown %s.%s %s" % (bguser, bguser, d_item), shell=True)
                 #
@@ -218,9 +223,98 @@ resources:
                   rcfile.write("export PATH=$PATH:%s/kafka/bin/\n" % workdir) 
               #
               if "spark" in node_type:
-                pass
+                pkglist = "epel-release yum-priorities vim-enhanced wget java-1.8.0-openjdk python2-pip"
+                pkglist += " python2-py4j python2-root python2-numpy python-pandas"
+                hdver = "2.9.1"
+                spkver = "2.3.2"
+                spk_wport = 6066
+                #
+                call("yum -y install %s" % pkglist, shell=True)
+                call("wget -O /tmp/hadoop-%s.tar.gz %s/hadoop-%s.tar.gz" % (hdver, repo_url, hdver), shell=True)
+                call(runcmd % ("tar -C %s -zxf /tmp/hadoop-%s.tar.gz" % (workdir, hdver)), shell=True)
+                os.rename("%s/hadoop-%s" % (workdir, hdver), "%s/hadoop" % workdir)
+                #
+                hdhome = workdir + "/hadoop"
+                spkhome = workdir + "/spark"
+                with open("/etc/profile.d/hadoop.sh", "w") as proffile:
+                  proffile.write("export JAVA_HOME=/usr/lib/jvm/jre-1.8.0-openjdk\n")
+                  proffile.write("export JRE_HOME=/usr/lib/jvm/jre-1.8.0-openjdk/jre\n")
+                  proffile.write("export HADOOP_PREFIX=%s\n" % hdhome)
+                  proffile.write("export HADOOP_HOME=%s\n" % hdhome)
+                  proffile.write("export HADOOP_COMMON_HOME=%s\n" % hdhome)
+                  proffile.write("export HADOOP_CONF_DIR=%s/etc/hadoop\n" % hdhome)
+                  proffile.write("export HADOOP_HDFS_HOME=%s\n" % hdhome)
+                  proffile.write("export HADOOP_MAPRED_HOME=%s\n" % hdhome)
+                  proffile.write("export HADOOP_YARN_HOME=%s\n" % hdhome)
+                  proffile.write("export PYTHONPATH=$PYTHONPATH:%s/python\n" % spkhome)
+                  proffile.write("export PATH=$PATH:%s/bin:%s/sbin\n" % (hdhome, hdhome))
+                  proffile.write("export PATH=$PATH:%s/bin:%s/sbin\n" % (spkhome, spkhome))
+                #
+                os.makedirs("%s/datanode" % workdir, 0770)
+                os.makedirs("%s/namenode" % workdir, 0770)
+                call("chown %s.%s %s/datanode %s/namenode" % (bguser, bguser, workdir, workdir), shell=True)
+                #
+                with open("%s/etc/hadoop/core-site.xml" % hdhome, "w") as corefile:
+                  corefile.write("<configuration>\n")
+                  corefile.write("  <property>\n")
+                  corefile.write("    <name>fs.defaultFS</name>\n")
+                  corefile.write("    <value>hdfs://%s-%d.pd.infn.it:9000/</value>\n" % (host_prefix, sparkIDs[0]))
+                  corefile.write("  </property>\n")
+                  corefile.write("</configuration>\n")
+                #
+                with open("%s/etc/hadoop/hdfs-site.xml" % hdhome, "w") as hdfscfile:
+                  hdfscfile.write("<configuration>\n")
+                  hdfscfile.write("  <property><name>dfs.replication</name><value>1</value></property>\n")
+                  hdfscfile.write("  <property><name>dfs.permissions</name><value>false</value></property>\n")
+                  hdfscfile.write("  <property><name>dfs.datanode.data.dir</name>")
+                  hdfscfile.write("<value>%s/datanode</value></property>\n" % workdir)
+                  hdfscfile.write("  <property><name>dfs.namenode.name.dir</name>")
+                  hdfscfile.write("<value>%s/namenode</value></property>\n" % workdir)
+                  hdfscfile.write("  <property> <name>dfs.secondary.http.address</name>")
+                  hdfscfile.write("<value>%s.%d:50090</value></property>\n" % (lan_ippre, sparkIDs[0]))
+                  hdfscfile.write("</configuration>\n")
+                #
+                with open("%s/etc/hadoop/mapred-site.xml" % hdhome, "w") as mrcfile:
+                  mrcfile.write("<configuration>\n")
+                  mrcfile.write("  <property><name>mapreduce.framework.name</name><value>yarn</value></property>\n")
+                  mrcfile.write("</configuration>\n")
+                #
+                with open("%s/etc/hadoop/yarn-site.xml" % hdhome, "w") as yarnfile:
+                  yarnfile.write("<configuration>\n")
+                  yarnfile.write("  <property><name>yarn.resourcemanager.hostname</name>")
+                  yarnfile.write("<value>%s-%d</value></property>\n" % (host_prefix, sparkIDs[0]))
+                  yarnfile.write("  <property><name>yarn.nodemanager.hostname</name>")
+                  yarnfile.write("<value>%s-%d</value></property>\n" % (host_prefix, sparkIDs[0]))
+                  yarnfile.write("  <property><name>yarn.nodemanager.aux-services</name>")
+                  yarnfile.write("<value>mapreduce_shuffle</value></property>\n")
+                  yarnfile.write("</configuration>\n")
+                #
+                with open("%s/etc/hadoop/slaves" % hdhome, "w") as slavefile:
+                  for item in sparkIDs[1:]:
+                    slavefile.write("%s-%d.pd.infn.it\n" % (host_prefix, item))
+                #
+                if node_id == sparkIDs[0]:
+                  call(runcmd % ("JAVA_HOME=/usr/lib/jvm/jre-1.8.0-openjdk %s/bin/hdfs namenode -format" % hdhome),
+                       shell=True)
+                #
+                call("wget -O /tmp/spark-%s.tar.gz %s/spark-%s-bin-without-hadoop.tgz" % (spkver, repo_url, spkver), shell=True)
+                call(runcmd % ("tar -C %s -zxf /tmp/spark-%s.tar.gz" % (workdir, spkver)), shell=True)
+                os.rename("%s/spark-%s-bin-without-hadoop" % (workdir, spkver), "%s/spark" % workdir)
+                #
+                with open("%s/conf/spark-env.sh" % spkhome, "w") as spenvfile:
+                  spenvfile.write("export SPARK_DIST_CLASSPATH=")
+                  spenvfile.write("$(%s/bin/hadoop --config %s/etc/hadoop classpath)\n" % (hdhome, hdhome))
+                  spenvfile.write("export SPARK_WORKER_PORT=%d\n" % spk_wport)
+                #
+                with open("%s/conf/slaves" % spkhome, "w") as slavefile:
+                  for item in sparkIDs[1:]:
+                    slavefile.write("%s-%d.pd.infn.it\n" % (host_prefix, item))
             except:
-              pass
+              # TODO use signal or wc for stacktrace output
+              etype, evalue, etraceback = sys.exc_info()
+              if etraceback:
+                with open("/tmp/heat_multi_node.log", "a") as tbfile:
+                  traceback.print_tb(etraceback, None, tbfile)
           params:
             <%host_pref%>: { get_param: host_prefix }
             <%lan_ippre%>: { get_param: lan_net_ippref }
@@ -233,7 +327,28 @@ resources:
 
 
 
-
+#
+# Post-inst commands:
+#   ssh-keyscan -t rsa1,rsa,dsa -f /etc/ssh/shosts.equiv >> /etc/ssh/ssh_known_hosts
+#   systemctl restart sshd
+# (bigdatausr on master) start-dfs.sh
+# (bigdatausr on master) start-master.sh
+# (bigdatausr on slave) start-slave.sh spark://*******.pd.infn.it:7077
+#
+# https://www.linode.com/docs/databases/hadoop/how-to-install-and-set-up-hadoop-cluster/
+# https://pandas.pydata.org/
+# http://www.numpy.org/
+#
+# latest package for spark-root in maven central: "org.diana-hep:spark-root_2.11:0.1.16"
+# python call:
+#   spark.read.format("org.dianahep.sparkroot.experimental").load("hdfs:///path/to/file.root")
+#
+# Simple tests
+#   kafka-topics.sh --create --zookeeper localhost:2181 --replication-factor 1 --partitions 1 --topic mytopic
+#   kafka-console-producer.sh --broker-list localhost:9092 --topic mytopic
+#   kafka-topics.sh --list --zookeeper localhost:2181
+#   kafka-console-consumer.sh --bootstrap-server localhost:9092 --from-beginning --topic mytopic
+#
 
 
 

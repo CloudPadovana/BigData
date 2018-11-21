@@ -33,6 +33,11 @@ parameters:
     description: This parameter has been set with the id of the tenant WAN network.
     default: a53d45ba-bc4b-43fd-982b-4960bc1fd26a
 
+  lan_ipprefix:
+    type: string
+    label: "LAN IPv4 prefix"
+    default: "10.64.48"
+
   lan_subnet_name:
     type: string
     label: LAN sub network of the tenant
@@ -45,18 +50,6 @@ parameters:
     description: This parameter has been set with the name of the tenant WAN sub network.
     default: "sub-SMACT-wan"
 
-  kafka_ip_list:
-    type: string
-    label: Fixed ip list for hdfs nodes
-    description: Fixed ip list for hdfs nodes
-    default: "10.64.48.20 10.64.48.21 10.64.48.22"
-
-  hdfs_ip_list:
-    type: string
-    label: Fixed ip list for hdfs nodes
-    description: Fixed ip list for hdfs nodes
-    default: "10.64.48.50 10.64.48.51 10.64.48.52"
-
   nameserver_list:
     type: string
     label: Name server ip list
@@ -65,20 +58,20 @@ parameters:
 
   nifi_admin_id:
     type: string
-    label: Name server ip list
-    description: Name server ip list
+    label: Portal admin id
+    description: Portal admin id
     default: "CN=Paolo Andreetto andreett@infn.it, O=Istituto Nazionale di Fisica Nucleare, C=IT, DC=tcs, DC=terena, DC=org"
 
   nifi_fixed_ip:
     type: string
-    label: Name server ip list
-    description: Name server ip list
+    label: Portal fixed IP address
+    description: Portal fixed IP address
     default:  "10.63.13.60"
 
   nifi_fip_id:
     type: string
-    label: ID of the floating ip for the current host
-    description: ID of the floating ip for the current host
+    label: ID of the floating ip for the portal
+    description: ID of the floating ip for the portal
     default: "14716383-635d-46a1-afcd-5a16925153b3"
 
 resources:
@@ -123,106 +116,107 @@ resources:
         {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 1024, "port_range_max": 65535, "remote_mode": remote_ip_prefix, "protocol": TCP}
       ]
 
-  kafka_node_1:
-    type: http://artifacts.pd.infn.it/packages/SMACT/templates/kafka_node.yaml
+  kafka_node_0:
+    type: http://artifacts.pd.infn.it/packages/SMACT/templates/multi_node.yaml
     properties:
       image_to_use: { get_param: image_to_use }
       flavor_to_use: { get_param: flavor_to_use }
       key_name_user: { get_param: key_name_user }
-      tenant_net_id: { get_param: lan_id }
-      tenant_subnet_name: { get_param: lan_subnet_name }
-      fixed_ip_list: { get_param: kafka_ip_list }
-      nameserver_list: { get_param: nameserver_list }
-      node_id: 0
-      sec_group_id: { get_resource: secgroup_bigstack_sg }
       root_pw: { get_resource: root_pw }
+      lan_net_id: { get_param: lan_id }
+      lan_subnet_name: { get_param: lan_subnet_name }
+      lan_net_ippref: { get_param: lan_ipprefix }
+      nameserver_list: { get_param: nameserver_list }
+      sec_group_id: { get_resource: secgroup_bigstack_sg }
+      node_type: kafka
+      node_id: 70
+      spark_ids: "80 81 82"
+      kafka_ids: "70 71 72"
+
+  kafka_node_1:
+    type: http://artifacts.pd.infn.it/packages/SMACT/templates/multi_node.yaml
+    properties:
+      image_to_use: { get_param: image_to_use }
+      flavor_to_use: { get_param: flavor_to_use }
+      key_name_user: { get_param: key_name_user }
+      root_pw: { get_resource: root_pw }
+      lan_net_id: { get_param: lan_id }
+      lan_subnet_name: { get_param: lan_subnet_name }
+      lan_net_ippref: { get_param: lan_ipprefix }
+      nameserver_list: { get_param: nameserver_list }
+      sec_group_id: { get_resource: secgroup_bigstack_sg }
+      node_type: kafka
+      node_id: 71
+      spark_ids: "80 81 82"
+      kafka_ids: "70 71 72"
 
   kafka_node_2:
-    type: http://artifacts.pd.infn.it/packages/SMACT/templates/kafka_node.yaml
+    type: http://artifacts.pd.infn.it/packages/SMACT/templates/multi_node.yaml
     properties:
       image_to_use: { get_param: image_to_use }
       flavor_to_use: { get_param: flavor_to_use }
       key_name_user: { get_param: key_name_user }
-      tenant_net_id: { get_param: lan_id }
-      tenant_subnet_name: { get_param: lan_subnet_name }
-      fixed_ip_list: { get_param: kafka_ip_list }
-      nameserver_list: { get_param: nameserver_list }
-      node_id: 1
-      sec_group_id: { get_resource: secgroup_bigstack_sg }
       root_pw: { get_resource: root_pw }
+      lan_net_id: { get_param: lan_id }
+      lan_subnet_name: { get_param: lan_subnet_name }
+      lan_net_ippref: { get_param: lan_ipprefix }
+      nameserver_list: { get_param: nameserver_list }
+      sec_group_id: { get_resource: secgroup_bigstack_sg }
+      node_type: kafka
+      node_id: 72
+      spark_ids: "80 81 82"
+      kafka_ids: "70 71 72"
 
-  kafka_node_3:
-    type: http://artifacts.pd.infn.it/packages/SMACT/templates/kafka_node.yaml
+  hdfs_node_0:
+    type: http://artifacts.pd.infn.it/packages/SMACT/templates/multi_node.yaml
     properties:
       image_to_use: { get_param: image_to_use }
       flavor_to_use: { get_param: flavor_to_use }
       key_name_user: { get_param: key_name_user }
-      tenant_net_id: { get_param: lan_id }
-      tenant_subnet_name: { get_param: lan_subnet_name }
-      fixed_ip_list: { get_param: kafka_ip_list }
-      nameserver_list: { get_param: nameserver_list }
-      node_id: 2
-      sec_group_id: { get_resource: secgroup_bigstack_sg }
       root_pw: { get_resource: root_pw }
+      lan_net_id: { get_param: lan_id }
+      lan_subnet_name: { get_param: lan_subnet_name }
+      lan_net_ippref: { get_param: lan_ipprefix }
+      nameserver_list: { get_param: nameserver_list }
+      sec_group_id: { get_resource: secgroup_bigstack_sg }
+      node_type: spark
+      node_id: 80
+      spark_ids: "80 81 82"
+      kafka_ids: "70 71 72"
 
   hdfs_node_1:
-    type: http://artifacts.pd.infn.it/packages/SMACT/templates/hdfs_node.yaml
+    type: http://artifacts.pd.infn.it/packages/SMACT/templates/multi_node.yaml
     properties:
       image_to_use: { get_param: image_to_use }
       flavor_to_use: { get_param: flavor_to_use }
       key_name_user: { get_param: key_name_user }
-      tenant_net_id: { get_param: lan_id }
-      tenant_subnet_name: { get_param: lan_subnet_name }
-      fixed_ip_list: { get_param: hdfs_ip_list }
-      nameserver_list: { get_param: nameserver_list }
-      node_id: 0
-      sec_group_id: { get_resource: secgroup_bigstack_sg }
       root_pw: { get_resource: root_pw }
+      lan_net_id: { get_param: lan_id }
+      lan_subnet_name: { get_param: lan_subnet_name }
+      lan_net_ippref: { get_param: lan_ipprefix }
+      nameserver_list: { get_param: nameserver_list }
+      sec_group_id: { get_resource: secgroup_bigstack_sg }
+      node_type: spark
+      node_id: 81
+      spark_ids: "80 81 82"
+      kafka_ids: "70 71 72"
 
   hdfs_node_2:
-    type: http://artifacts.pd.infn.it/packages/SMACT/templates/hdfs_node.yaml
+    type: http://artifacts.pd.infn.it/packages/SMACT/templates/multi_node.yaml
     properties:
       image_to_use: { get_param: image_to_use }
       flavor_to_use: { get_param: flavor_to_use }
       key_name_user: { get_param: key_name_user }
-      tenant_net_id: { get_param: lan_id }
-      tenant_subnet_name: { get_param: lan_subnet_name }
-      fixed_ip_list: { get_param: hdfs_ip_list }
-      nameserver_list: { get_param: nameserver_list }
-      node_id: 1
-      sec_group_id: { get_resource: secgroup_bigstack_sg }
       root_pw: { get_resource: root_pw }
-
-  hdfs_node_3:
-    type: http://artifacts.pd.infn.it/packages/SMACT/templates/hdfs_node.yaml
-    properties:
-      image_to_use: { get_param: image_to_use }
-      flavor_to_use: { get_param: flavor_to_use }
-      key_name_user: { get_param: key_name_user }
-      tenant_net_id: { get_param: lan_id }
-      tenant_subnet_name: { get_param: lan_subnet_name }
-      fixed_ip_list: { get_param: hdfs_ip_list }
-      nameserver_list: { get_param: nameserver_list }
-      node_id: 2
-      sec_group_id: { get_resource: secgroup_bigstack_sg }
-      root_pw: { get_resource: root_pw }
-
-  nifi_node_1:
-    type: http://artifacts.pd.infn.it/packages/SMACT/templates/nifi_node.yaml
-    properties:
-      image_to_use: { get_param: image_to_use }
-      flavor_to_use: { get_param: flavor_to_use }
-      key_name_user: { get_param: key_name_user }
-      tenant_net_id: { get_param: wan_id }
-      tenant_subnet_name: { get_param: wan_subnet_name }
+      lan_net_id: { get_param: lan_id }
+      lan_subnet_name: { get_param: lan_subnet_name }
+      lan_net_ippref: { get_param: lan_ipprefix }
       nameserver_list: { get_param: nameserver_list }
       sec_group_id: { get_resource: secgroup_bigstack_sg }
-      root_pw: { get_resource: root_pw }
-      keystore_pw: { get_resource: root_pw }
-      admin_id: { get_param: nifi_admin_id }
-      fixed_ip: { get_param: nifi_fixed_ip }
-      fip_id: { get_param: nifi_fip_id }
-
+      node_type: spark
+      node_id: 82
+      spark_ids: "80 81 82"
+      kafka_ids: "70 71 72"
 
 outputs:
 

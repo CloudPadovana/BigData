@@ -12,11 +12,13 @@ parameters:
 
   avail_zone: { type: string, label: "Availability Zone", default: "nova" }
 
-  host_prefix: { type: string, label: Hostname prefix", default: "bigdata-test" }
+  host_prefix: { type: string, label: "Hostname prefix", default: "bigdata-test" }
 
-  lan_net_id: { type: string, label: "LAN Network ID" }
+  host_name: { type: string, label: "Server Hostname", default: "undefined" }
+
+  lan_net_id: { type: string, label: "LAN Network ID", default: "undefined" }
   
-  lan_subnet_name: { type: string, label: "LAN Sub network" }
+  lan_subnet_name: { type: string, label: "LAN Sub network", default: "undefined" }
 
   lan_net_ippref: { type: string, label: "LAN IPv4 prefix" }
 
@@ -37,6 +39,16 @@ parameters:
   kafka_ids: { type: string, label: "Kafka host id" }
 
   spark_ids: { type: string, label: "Spark host id" }
+
+  admin_id: { type: string, label: "Administrator ID", default: "undefined" }
+
+  fip_id: { type: string, label: "Floating point ID", default: "undefined" }
+
+  oidc_client_id: { type: string, label: "OpenID Connect Client ID", default: "undefined" }
+
+  oidc_client_secret: { type: string, label: "OpenID Connect Client secret", default: "undefined" }
+
+  oidc_idp_url: { type: string, label: "OpenID Connect IdP metadata", default: "undefined" }
 
 conditions:
 
@@ -84,6 +96,13 @@ resources:
           }
       security_groups: [ { get_param: sec_group_id }, ]
 
+  public_fip_ass:
+    type: OS::Neutron::FloatingIPAssociation
+    condition: public_access
+    properties:
+      floatingip_id: { get_param: fip_id }
+      port_id: { get_resource: public_port }
+
   server_instance:
     type: OS::Nova::Server
     properties:
@@ -108,7 +127,14 @@ resources:
               lan_ippre = "<%lan_ippre%>"
               nameservers = "<%ns_list%>"
               node_type = "<%node_type%>"
-              servername = "%s-%d.pd.infn.it" % (host_prefix, node_id)
+              rootpwd = "<%root_pwd%>"
+              admin_id = "<%admin_id%>"
+              oidc_id = "<%oidc_id%>" if "<%oidc_id%>".lower() <> "undefined" else ""
+              oidc_sec = "<%oidc_sec%>" if "<%oidc_sec%>".lower() <> "undefined" else ""
+              oidc_idp = "<%oidc_idp%>" if "<%oidc_idp%>".lower() <> "undefined" else ""
+              servername = "<%host_name%>".strip()
+              if not servername or servername == "undefined":
+                servername = "%s-%d.pd.infn.it" % (host_prefix, node_id)
               workdir = "/opt/bigdata"
               bguser = "bigdatausr"
               kafkaIDs = map(lambda x: int(x), re.findall(r'\d+', "<%kafka_ids%>"))
@@ -155,6 +181,10 @@ resources:
               #
               call("useradd -d %s %s" % (workdir, bguser), shell=True)
               runcmd = "runuser -s /bin/bash -c \"%s\" -- " + bguser
+              #
+              #####################################################################################
+              # Kafka setup
+              #####################################################################################
               #
               if "kafka" in node_type:
                 pkglist = "epel-release yum-priorities vim-enhanced wget java-1.8.0-openjdk"
@@ -221,6 +251,10 @@ resources:
                 #
                 with open("/etc/bashrc", "a") as rcfile:
                   rcfile.write("export PATH=$PATH:%s/kafka/bin/\n" % workdir) 
+              #
+              #####################################################################################
+              # Spark setup
+              #####################################################################################
               #
               if "spark" in node_type:
                 pkglist = "epel-release yum-priorities vim-enhanced wget java-1.8.0-openjdk python2-pip"
@@ -309,21 +343,230 @@ resources:
                 with open("%s/conf/slaves" % spkhome, "w") as slavefile:
                   for item in sparkIDs[1:]:
                     slavefile.write("%s-%d.pd.infn.it\n" % (host_prefix, item))
+              #
+              #####################################################################################
+              # Nifi setup
+              #####################################################################################
+              #
+              if "nifi" in node_type:
+                pkglist = "epel-release yum-priorities vim-enhanced wget java-1.8.0-openjdk"
+                nifiver = "1.7.1"
+                #
+                call("yum -y install %s" % pkglist, shell=True)
+                call("wget -O /tmp/nifi-%s.tar.gz %s/nifi-%s-bin.tar.gz" % (nifiver, repo_url, nifiver), shell=True)
+                call(runcmd % ("tar -C %s -zxf /tmp/nifi-%s.tar.gz" % (workdir, nifiver)), shell=True)
+                os.rename("%s/nifi-%s" % (workdir, nifiver), "%s/nifi" % workdir)
+                #
+                with open("%s/nifi/conf/nifi.properties" % workdir, "w") as nififile:
+                  nififile.write("nifi.administrative.yield.duration=30 sec\n")
+                  nififile.write("nifi.authorizer.configuration.file=%s/nifi/conf/authorizers.xml\n" % workdir)
+                  nififile.write("nifi.bored.yield.duration=10 millis\n")
+                  nififile.write("nifi.cluster.firewall.file=\n")
+                  nififile.write("nifi.cluster.flow.election.max.candidates=\n")
+                  nififile.write("nifi.cluster.flow.election.max.wait.time=5 mins\n")
+                  nififile.write("nifi.cluster.is.node=false\n")
+                  nififile.write("nifi.cluster.node.address=\n")
+                  nififile.write("nifi.cluster.node.connection.timeout=5 sec\n")
+                  nififile.write("nifi.cluster.node.event.history.size=25\n")
+                  nififile.write("nifi.cluster.node.max.concurrent.requests=100\n")
+                  nififile.write("nifi.cluster.node.protocol.max.threads=50\n")
+                  nififile.write("nifi.cluster.node.protocol.port=\n")
+                  nififile.write("nifi.cluster.node.protocol.threads=10\n")
+                  nififile.write("nifi.cluster.node.read.timeout=5 sec\n")
+                  nififile.write("nifi.cluster.protocol.heartbeat.interval=5 sec\n")
+                  nififile.write("nifi.cluster.protocol.is.secure=true\n")
+                  nififile.write("nifi.components.status.repository.buffer.size=1440\n")
+                  nififile.write("nifi.components.status.repository.implementation=")
+                  nififile.write("org.apache.nifi.controller.status.history.VolatileComponentStatusRepository\n")
+                  nififile.write("nifi.components.status.snapshot.frequency=1 min\n")
+                  nififile.write("nifi.content.claim.max.appendable.size=1 MB\n")
+                  nififile.write("nifi.content.claim.max.flow.files=100\n")
+                  nififile.write("nifi.content.repository.always.sync=false\n")
+                  nififile.write("nifi.content.repository.archive.enabled=true\n")
+                  nififile.write("nifi.content.repository.archive.max.retention.period=12 hours\n")
+                  nififile.write("nifi.content.repository.archive.max.usage.percentage=50%\n")
+                  nififile.write("nifi.content.repository.directory.default=%s/nifi/content_repository\n" % workdir)
+                  nififile.write("nifi.content.repository.implementation=")
+                  nififile.write("org.apache.nifi.controller.repository.FileSystemRepository\n")
+                  nififile.write("nifi.content.viewer.url=../nifi-content-viewer/\n")
+                  nififile.write("nifi.database.directory=./database_repository\n")
+                  nififile.write("nifi.documentation.working.directory=%s/nifi/work/docs/components\n" % workdir)
+                  nififile.write("nifi.flow.configuration.archive.dir=%s/nifi/conf/archive/\n" % workdir)
+                  nififile.write("nifi.flow.configuration.archive.enabled=true\n")
+                  nififile.write("nifi.flow.configuration.archive.max.count=\n")
+                  nififile.write("nifi.flow.configuration.archive.max.storage=500 MB\n")
+                  nififile.write("nifi.flow.configuration.archive.max.time=30 days\n")
+                  nififile.write("nifi.flow.configuration.file=./conf/flow.xml.gz\n")
+                  nififile.write("nifi.flowcontroller.autoResumeState=true\n")
+                  nififile.write("nifi.flowcontroller.graceful.shutdown.period=10 sec\n")
+                  nififile.write("nifi.flowfile.repository.always.sync=false\n")
+                  nififile.write("nifi.flowfile.repository.checkpoint.interval=2 mins\n")
+                  nififile.write("nifi.flowfile.repository.directory=%s/nifi/flowfile_repository\n" % workdir)
+                  nififile.write("nifi.flowfile.repository.implementation=")
+                  nififile.write("org.apache.nifi.controller.repository.WriteAheadFlowFileRepository\n")
+                  nififile.write("nifi.flowfile.repository.partitions=256\n")
+                  nififile.write("nifi.flowfile.repository.wal.implementation=")
+                  nififile.write("org.apache.nifi.wali.SequentialAccessWriteAheadLog\n")
+                  nififile.write("nifi.flowservice.writedelay.interval=500 ms\n")
+                  nififile.write("nifi.h2.url.append=;LOCK_TIMEOUT=25000;WRITE_DELAY=0;AUTO_SERVER=FALSE\n")
+                  nififile.write("nifi.kerberos.krb5.file=\n")
+                  nififile.write("nifi.kerberos.service.keytab.location=\n")
+                  nififile.write("nifi.kerberos.service.principal=\n")
+                  nififile.write("nifi.kerberos.spnego.authentication.expiration=12 hours\n")
+                  nififile.write("nifi.kerberos.spnego.keytab.location=\n")
+                  nififile.write("nifi.kerberos.spnego.principal=\n")
+                  nififile.write("nifi.login.identity.provider.configuration.file=")
+                  nififile.write("%s/nifi/conf/login-identity-providers.xml\n" % workdir)
+                  nififile.write("nifi.nar.library.directory=%s/nifi/lib\n" % workdir)
+                  nififile.write("nifi.nar.working.directory=%s/nifi/work/nar/\n" % workdir)
+                  nififile.write("nifi.provenance.repository.always.sync=false\n")
+                  nififile.write("nifi.provenance.repository.buffer.size=100000\n")
+                  nififile.write("nifi.provenance.repository.compress.on.rollover=true\n")
+                  nififile.write("nifi.provenance.repository.concurrent.merge.threads=2\n")
+                  nififile.write("nifi.provenance.repository.debug.frequency=1_000_000\n")
+                  nififile.write("nifi.provenance.repository.directory.default=")
+                  nififile.write("%s/nifi/provenance_repository\n" % workdir)
+                  nififile.write("nifi.provenance.repository.encryption.key=\n")
+                  nififile.write("nifi.provenance.repository.encryption.key.id=\n")
+                  nififile.write("nifi.provenance.repository.encryption.key.provider.implementation=\n")
+                  nififile.write("nifi.provenance.repository.encryption.key.provider.location=\n")
+                  nififile.write("nifi.provenance.repository.implementation=")
+                  nififile.write("org.apache.nifi.provenance.PersistentProvenanceRepository\n")
+                  nififile.write("nifi.provenance.repository.indexed.attributes=\n")
+                  nififile.write("nifi.provenance.repository.indexed.fields=")
+                  nififile.write("EventType, FlowFileUUID, Filename, ProcessorID, Relationship\n")
+                  nififile.write("nifi.provenance.repository.index.shard.size=500 MB\n")
+                  nififile.write("nifi.provenance.repository.index.threads=2\n")
+                  nififile.write("nifi.provenance.repository.journal.count=16\n")
+                  nififile.write("nifi.provenance.repository.max.attribute.length=65536\n")
+                  nififile.write("nifi.provenance.repository.max.storage.size=1 GB\n")
+                  nififile.write("nifi.provenance.repository.max.storage.time=24 hours\n")
+                  nififile.write("nifi.provenance.repository.query.threads=2\n")
+                  nififile.write("nifi.provenance.repository.rollover.size=100 MB\n")
+                  nififile.write("nifi.provenance.repository.rollover.time=30 secs\n")
+                  nififile.write("nifi.provenance.repository.warm.cache.frequency=1 hour\n")
+                  nififile.write("nifi.queue.backpressure.count=10000\n")
+                  nififile.write("nifi.queue.backpressure.size=1 GB\n")
+                  nififile.write("nifi.queue.swap.threshold=20000\n")
+                  nififile.write("nifi.remote.contents.cache.expiration=30 secs\n")
+                  nififile.write("nifi.remote.input.host=\n")
+                  nififile.write("nifi.remote.input.http.enabled=true\n")
+                  nififile.write("nifi.remote.input.http.transaction.ttl=30 sec\n")
+                  nififile.write("nifi.remote.input.secure=true\n")
+                  nififile.write("nifi.remote.input.socket.port=\n")
+                  nififile.write("nifi.security.keyPasswd=%s\n" % rootpwd)
+                  nififile.write("nifi.security.keystore=%s/nifi/conf/service.jks\n" % workdir)
+                  nififile.write("nifi.security.keystorePasswd=%s\n" % rootpwd)
+                  nififile.write("nifi.security.keystoreType=JKS\n")
+                  nififile.write("nifi.security.needClientAuth=false\n")
+                  nififile.write("nifi.security.ocsp.responder.certificate=\n")
+                  nififile.write("nifi.security.ocsp.responder.url=\n")
+                  nififile.write("nifi.security.truststore=/etc/pki/java/cacerts\n")
+                  nififile.write("nifi.security.truststorePasswd=changeit\n")
+                  nififile.write("nifi.security.truststoreType=JKS\n")
+                  nififile.write("nifi.security.user.authorizer=managed-authorizer\n")
+                  nififile.write("nifi.security.user.knox.audiences=\n")
+                  nififile.write("nifi.security.user.knox.cookieName=hadoop-jwt\n")
+                  nififile.write("nifi.security.user.knox.publicKey=\n")
+                  nififile.write("nifi.security.user.knox.url=\n")
+                  nififile.write("nifi.security.user.login.identity.provider=\n")
+                  nififile.write("nifi.security.user.oidc.client.id=%s\n" % oidc_id)
+                  nififile.write("nifi.security.user.oidc.client.secret=%s\n" % oidc_sec)
+                  nififile.write("nifi.security.user.oidc.connect.timeout=5 secs\n")
+                  nififile.write("nifi.security.user.oidc.discovery.url=%s\n" % oidc_idp)
+                  nififile.write("nifi.security.user.oidc.preferred.jwsalgorithm=\n")
+                  nififile.write("nifi.security.user.oidc.read.timeout=5 secs\n")
+                  nififile.write("nifi.sensitive.props.additional.keys=\n")
+                  nififile.write("nifi.sensitive.props.algorithm=PBEWITHMD5AND256BITAES-CBC-OPENSSL\n")
+                  nififile.write("nifi.sensitive.props.key=%s\n" % rootpwd)
+                  nififile.write("nifi.sensitive.props.key.protected=\n")
+                  nififile.write("nifi.sensitive.props.provider=BC\n")
+                  nififile.write("nifi.state.management.configuration.file=")
+                  nififile.write("%s/nifi/conf/state-management.xml\n" % workdir)
+                  nififile.write("nifi.state.management.embedded.zookeeper.properties=")
+                  nififile.write("%s/nifi/conf/zookeeper.properties\n" % workdir)
+                  nififile.write("nifi.state.management.embedded.zookeeper.start=false\n")
+                  nififile.write("nifi.state.management.provider.cluster=zk-provider\n")
+                  nififile.write("nifi.state.management.provider.local=local-provider\n")
+                  nififile.write("nifi.swap.in.period=5 sec\n")
+                  nififile.write("nifi.swap.in.threads=1\n")
+                  nififile.write("nifi.swap.manager.implementation=")
+                  nififile.write("org.apache.nifi.controller.FileSystemSwapManager\n")
+                  nififile.write("nifi.swap.out.period=5 sec\n")
+                  nififile.write("nifi.swap.out.threads=4\n")
+                  nififile.write("nifi.templates.directory=%s/nifi/conf/templates\n" % workdir)
+                  nififile.write("nifi.ui.autorefresh.interval=30 sec\n")
+                  nififile.write("nifi.ui.banner.text=\n")
+                  nififile.write("nifi.variable.registry.properties=\n")
+                  nififile.write("nifi.web.http.host=\n")
+                  nififile.write("nifi.web.http.network.interface.default=\n")
+                  nififile.write("nifi.web.http.port=\n")
+                  nififile.write("nifi.web.https.host=0.0.0.0\n")
+                  nififile.write("nifi.web.https.network.interface.default=\n")
+                  nififile.write("nifi.web.https.port=8443\n")
+                  nififile.write("nifi.web.jetty.threads=200\n")
+                  nififile.write("nifi.web.jetty.working.directory=%s/nifi/work/jetty\n" % workdir)
+                  nififile.write("nifi.web.max.header.size=16 KB\n")
+                  nififile.write("nifi.web.proxy.context.path=\n")
+                  nififile.write("nifi.web.proxy.host=\n")
+                  nififile.write("nifi.web.war.directory=%s/nifi/lib\n" % workdir)
+                  nififile.write("nifi.zookeeper.auth.type=\n")
+                  nififile.write("nifi.zookeeper.connect.string=\n")
+                  nififile.write("nifi.zookeeper.connect.timeout=3 secs\n")
+                  nififile.write("nifi.zookeeper.kerberos.removeHostFromPrincipal=\n")
+                  nififile.write("nifi.zookeeper.kerberos.removeRealmFromPrincipal=\n")
+                  nififile.write("nifi.zookeeper.root.node=/nifi\n")
+                  nififile.write("nifi.zookeeper.session.timeout=3 secs\n")
+                #
+                with open("%s/nifi/conf/authorizers.xml" % workdir, "w") as authfile:
+                  authfile.write("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n")
+                  authfile.write("<authorizers>\n")
+                  authfile.write("  <userGroupProvider>\n")
+                  authfile.write("    <identifier>file-user-group-provider</identifier>\n")
+                  authfile.write("    <class>org.apache.nifi.authorization.FileUserGroupProvider</class>\n")
+                  authfile.write("    <property name=\"Users File\">./conf/users.xml</property>\n")
+                  authfile.write("    <property name=\"Legacy Authorized Users File\"></property>\n")
+                  authfile.write("    <property name=\"Legacy Authorized Users File\"></property>\n")
+                  authfile.write("    <property name=\"Legacy Authorized Users File\"></property>\n")
+                  authfile.write("    <property name=\"Legacy Authorized Users File\"></property>\n")
+                  authfile.write("    <property name=\"Initial User Identity 1\">%s</property>\n" % admin_id)
+                  authfile.write("  </userGroupProvider>\n")
+                  authfile.write("  <accessPolicyProvider>\n")
+                  authfile.write("    <identifier>file-access-policy-provider</identifier>\n")
+                  authfile.write("    <class>org.apache.nifi.authorization.FileAccessPolicyProvider</class>\n")
+                  authfile.write("    <property name=\"User Group Provider\">file-user-group-provider</property>\n")
+                  authfile.write("    <property name=\"Authorizations File\">./conf/authorizations.xml</property>\n")
+                  authfile.write("    <property name=\"Initial Admin Identity\">%s</property>\n" % admin_id)
+                  authfile.write("    <property name=\"Legacy Authorized Users File\"></property>\n")
+                  authfile.write("    <property name=\"Node Identity 1\"></property>\n")
+                  authfile.write("  </accessPolicyProvider>\n")
+                  authfile.write("  <authorizer>\n")
+                  authfile.write("    <identifier>managed-authorizer</identifier>\n")
+                  authfile.write("    <class>org.apache.nifi.authorization.StandardManagedAuthorizer</class>\n")
+                  authfile.write("    <property name=\"Access Policy Provider\">file-access-policy-provider</property>\n")
+                  authfile.write("   </authorizer>\n")
+                  authfile.write("</authorizers>\n")
+              #
             except:
               # TODO use signal or wc for stacktrace output
               etype, evalue, etraceback = sys.exc_info()
               if etraceback:
                 with open("/tmp/heat_multi_node.log", "a") as tbfile:
-                  traceback.print_tb(etraceback, None, tbfile)
+                  traceback.print_exception(etype, evalue, etraceback, None, tbfile)
           params:
             <%host_pref%>: { get_param: host_prefix }
+            <%host_name%>: { get_param: host_name }
             <%lan_ippre%>: { get_param: lan_net_ippref }
             <%node_id%>:   { get_param: node_id }
             <%kafka_ids%>: { get_param: kafka_ids }
             <%spark_ids%>: { get_param: spark_ids }
             <%ns_list%>:   { get_param: nameserver_list }
             <%node_type%>: { get_param: node_type }
-
+            <%root_pwd%>:  { get_param: root_pw }
+            <%admin_id%>:  { get_param: admin_id }
+            <%oidc_id%>:   { get_param: oidc_client_id }
+            <%oidc_sec%>:  { get_param: oidc_client_secret }
+            <%oidc_idp%>:  { get_param: oidc_idp_url }
 
 
 
@@ -348,6 +591,12 @@ resources:
 #   kafka-console-producer.sh --broker-list localhost:9092 --topic mytopic
 #   kafka-topics.sh --list --zookeeper localhost:2181
 #   kafka-console-consumer.sh --bootstrap-server localhost:9092 --from-beginning --topic mytopic
+#
+# Nifi post-inst operations:
+# Install the keystore in /opt/bigdata/nifi/conf/service.jks:
+#   the keystore pwd MUST BE equal to the root_pwd
+#   the owner MUST BE bigdatausr.bigdatausr
+# Run "/opt/bigdata/nifi/bin/nifi.sh start" as bigdatausr
 #
 
 

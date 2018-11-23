@@ -6,31 +6,31 @@ parameters:
   image_to_use:
     type: string
     label: Image name or ID
-    description: Image used for all nodes in the kafka cluster (CentOS7)
     default: fb2906c4-56a1-45a1-9041-485716cb7016 
 
   flavor_to_use:
     type: string
     label: Flavor name 
-    description: Flavor used for all nodes in the kafka cluster
     default: cldareapd.small
 
   key_name_user:
     type: string
     label: Public ssh key of one user.
-    description: Public ssh key of one user.
     default: mbuto-desktop
+
+  host_name:
+    type: string
+    label: "Server Hostname"
+    default: "cld-smact-01.pd.infn.it"
 
   lan_id:
     type: string
     label: LAN Network ID of the tenant
-    description: This parameter has been set with the id of the tenant LAN network.
     default: d68e615a-7716-4e95-a413-492339300b58
 
   wan_id:
     type: string
     label: WAN Network ID of the tenant
-    description: This parameter has been set with the id of the tenant WAN network.
     default: a53d45ba-bc4b-43fd-982b-4960bc1fd26a
 
   lan_ipprefix:
@@ -38,41 +38,50 @@ parameters:
     label: "LAN IPv4 prefix"
     default: "10.64.48"
 
+  wan_ipprefix:
+    type: string
+    label: "WAN IPv4 prefix"
+    default: "10.63.13"
+
   lan_subnet_name:
     type: string
     label: LAN sub network of the tenant
-    description: This parameter has been set with the name of the tenant LAN sub network.
     default: "sub-SMACT-lan"
 
   wan_subnet_name:
     type: string
     label: WAN sub network of the tenant
-    description: This parameter has been set with the name of the tenant WAN sub network.
     default: "sub-SMACT-wan"
 
   nameserver_list:
     type: string
     label: Name server ip list
-    description: Name server ip list
     default:  "192.84.143.31 192.84.143.16"
 
   nifi_admin_id:
     type: string
     label: Portal admin id
-    description: Portal admin id
     default: "CN=Paolo Andreetto andreett@infn.it, O=Istituto Nazionale di Fisica Nucleare, C=IT, DC=tcs, DC=terena, DC=org"
-
-  nifi_fixed_ip:
-    type: string
-    label: Portal fixed IP address
-    description: Portal fixed IP address
-    default:  "10.63.13.60"
 
   nifi_fip_id:
     type: string
     label: ID of the floating ip for the portal
-    description: ID of the floating ip for the portal
     default: "14716383-635d-46a1-afcd-5a16925153b3"
+
+  oidc_client_id:
+    type: string
+    label: OpenID Connect Client ID
+    default: ""
+
+  oidc_client_secret:
+    type: string
+    label: OpenID Connect Client secret
+    default: ""
+
+  oidc_idp_url:
+    type: string
+    label: OpenID Connect IdP metadata
+    default: ""
 
 resources:
   
@@ -217,6 +226,30 @@ resources:
       node_id: 82
       spark_ids: "80 81 82"
       kafka_ids: "70 71 72"
+
+  nifi_node:
+    type: http://artifacts.pd.infn.it/packages/SMACT/templates/multi_node.yaml
+    properties:
+      image_to_use: { get_param: image_to_use }
+      flavor_to_use: { get_param: flavor_to_use }
+      key_name_user: { get_param: key_name_user }
+      root_pw: { get_resource: root_pw }
+      host_name: { get_param: host_name }
+      wan_net_id: { get_param: wan_id }
+      wan_subnet_name: { get_param: wan_subnet_name }
+      wan_net_ippref: { get_param: wan_ipprefix }
+      lan_net_ippref: { get_param: lan_ipprefix }
+      nameserver_list: { get_param: nameserver_list }
+      sec_group_id: { get_resource: secgroup_bigstack_sg }
+      node_type: nifi
+      node_id: 90
+      spark_ids: "80 81 82"
+      kafka_ids: "70 71 72"
+      admin_id: { get_param: nifi_admin_id }
+      fip_id: { get_param: nifi_fip_id }
+      oidc_client_id: { get_param: oidc_client_id }
+      oidc_client_secret: { get_param: oidc_client_secret }
+      oidc_idp_url: { get_param: oidc_idp_url }
 
 outputs:
 

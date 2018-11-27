@@ -137,8 +137,11 @@ resources:
                 servername = "%s-%d.pd.infn.it" % (host_prefix, node_id)
               workdir = "/opt/bigdata"
               bguser = "bigdatausr"
+              #
               kafkaIDs = map(lambda x: int(x), re.findall(r'\d+', "<%kafka_ids%>"))
               sparkIDs = map(lambda x: int(x), re.findall(r'\d+', "<%spark_ids%>"))
+              allIDs = set(kafkaIDs) | set(sparkIDs)
+              #
               repo_url = "http://artifacts.pd.infn.it/packages/SMACT/misc"
               #
               call("hostnamectl set-hostname %s" % servername, shell=True)
@@ -146,12 +149,12 @@ resources:
               with open("/etc/hosts", "w") as hostsfile:
                 hostsfile.write("127.0.0.1 localhost.pd.infn.it localhost\n")
                 hostsfile.write("::1       localhost.pd.infn.it localhost\n")
-                for item in kafkaIDs + sparkIDs:
+                for item in allIDs:
                   tmpn = "%s-%d" % (host_prefix, item)
                   hostsfile.write("%s.%d %s.pd.infn.it %s\n" % (lan_ippre, item, tmpn, tmpn))
               #
               with open("/etc/ssh/shosts.equiv", "w") as equivfile:
-                for item in kafkaIDs + sparkIDs:
+                for item in allIDs:
                   equivfile.write("%s-%d.pd.infn.it\n" % (host_prefix, item))
               #
               with open("/etc/resolv.conf", "w") as resolvfile:
@@ -182,15 +185,16 @@ resources:
               call("useradd -d %s %s" % (workdir, bguser), shell=True)
               runcmd = "runuser -s /bin/bash -c \"%s\" -- " + bguser
               #
+              pkglist = "epel-release yum-priorities vim-enhanced wget java-1.8.0-openjdk"
+              call("yum -y install %s" % pkglist, shell=True)
+              #
               #####################################################################################
               # Kafka setup
               #####################################################################################
               #
               if "kafka" in node_type:
-                pkglist = "epel-release yum-priorities vim-enhanced wget java-1.8.0-openjdk"
                 kafkaver = "2.11-1.1.0"
                 #
-                call("yum -y install %s" % pkglist, shell=True)
                 call("wget -O /tmp/kafka_%s.tgz %s/kafka_%s.tgz" % (kafkaver, repo_url, kafkaver), shell=True)
                 call("tar -C %s -zxf /tmp/kafka_%s.tgz" % (workdir, kafkaver), shell=True)
                 os.rename("%s/kafka_%s" % (workdir, kafkaver), "%s/kafka" % workdir)
@@ -256,14 +260,31 @@ resources:
               # Spark setup
               #####################################################################################
               #
+              corecfg =  "<configuration>\n"
+              corecfg += "  <property>\n"
+              corecfg += "    <name>fs.defaultFS</name>\n"
+              corecfg += "    <value>hdfs://%s-%d.pd.infn.it:9000/</value>\n" % (host_prefix, sparkIDs[0])
+              corecfg += "  </property>\n"
+              corecfg += "</configuration>\n"
+              #
+              hdfscfg =  "<configuration>\n"
+              hdfscfg += "  <property><name>dfs.replication</name><value>1</value></property>\n"
+              hdfscfg += "  <property><name>dfs.permissions</name><value>false</value></property>\n"
+              hdfscfg += "  <property><name>dfs.datanode.data.dir</name>"
+              hdfscfg += "<value>%s/datanode</value></property>\n" % workdir
+              hdfscfg += "  <property><name>dfs.namenode.name.dir</name>"
+              hdfscfg += "<value>%s/namenode</value></property>\n" % workdir
+              hdfscfg += "  <property> <name>dfs.secondary.http.address</name>"
+              hdfscfg += "<value>%s.%d:50090</value></property>\n" % (lan_ippre, sparkIDs[0])
+              hdfscfg += "</configuration>\n"
+              #
               if "spark" in node_type:
-                pkglist = "epel-release yum-priorities vim-enhanced wget java-1.8.0-openjdk python2-pip"
-                pkglist += " python2-py4j python2-root python2-numpy python-pandas"
+                extrapkgs = "python2-pip python2-py4j python2-root python2-numpy python-pandas"
                 hdver = "2.9.1"
                 spkver = "2.3.2"
                 spk_wport = 6066
                 #
-                call("yum -y install %s" % pkglist, shell=True)
+                call("yum -y install %s" % extrapkgs, shell=True)
                 call("wget -O /tmp/hadoop-%s.tar.gz %s/hadoop-%s.tar.gz" % (hdver, repo_url, hdver), shell=True)
                 call(runcmd % ("tar -C %s -zxf /tmp/hadoop-%s.tar.gz" % (workdir, hdver)), shell=True)
                 os.rename("%s/hadoop-%s" % (workdir, hdver), "%s/hadoop" % workdir)
@@ -289,24 +310,10 @@ resources:
                 call("chown %s.%s %s/datanode %s/namenode" % (bguser, bguser, workdir, workdir), shell=True)
                 #
                 with open("%s/etc/hadoop/core-site.xml" % hdhome, "w") as corefile:
-                  corefile.write("<configuration>\n")
-                  corefile.write("  <property>\n")
-                  corefile.write("    <name>fs.defaultFS</name>\n")
-                  corefile.write("    <value>hdfs://%s-%d.pd.infn.it:9000/</value>\n" % (host_prefix, sparkIDs[0]))
-                  corefile.write("  </property>\n")
-                  corefile.write("</configuration>\n")
+                  corefile.write(corecfg)
                 #
                 with open("%s/etc/hadoop/hdfs-site.xml" % hdhome, "w") as hdfscfile:
-                  hdfscfile.write("<configuration>\n")
-                  hdfscfile.write("  <property><name>dfs.replication</name><value>1</value></property>\n")
-                  hdfscfile.write("  <property><name>dfs.permissions</name><value>false</value></property>\n")
-                  hdfscfile.write("  <property><name>dfs.datanode.data.dir</name>")
-                  hdfscfile.write("<value>%s/datanode</value></property>\n" % workdir)
-                  hdfscfile.write("  <property><name>dfs.namenode.name.dir</name>")
-                  hdfscfile.write("<value>%s/namenode</value></property>\n" % workdir)
-                  hdfscfile.write("  <property> <name>dfs.secondary.http.address</name>")
-                  hdfscfile.write("<value>%s.%d:50090</value></property>\n" % (lan_ippre, sparkIDs[0]))
-                  hdfscfile.write("</configuration>\n")
+                  hdfscfile.write(hdfscfg)
                 #
                 with open("%s/etc/hadoop/mapred-site.xml" % hdhome, "w") as mrcfile:
                   mrcfile.write("<configuration>\n")
@@ -349,10 +356,8 @@ resources:
               #####################################################################################
               #
               if "nifi" in node_type:
-                pkglist = "epel-release yum-priorities vim-enhanced wget java-1.8.0-openjdk"
                 nifiver = "1.7.1"
                 #
-                call("yum -y install %s" % pkglist, shell=True)
                 call("wget -O /tmp/nifi-%s.tar.gz %s/nifi-%s-bin.tar.gz" % (nifiver, repo_url, nifiver), shell=True)
                 call(runcmd % ("tar -C %s -zxf /tmp/nifi-%s.tar.gz" % (workdir, nifiver)), shell=True)
                 os.rename("%s/nifi-%s" % (workdir, nifiver), "%s/nifi" % workdir)
@@ -546,6 +551,13 @@ resources:
                   authfile.write("    <property name=\"Access Policy Provider\">file-access-policy-provider</property>\n")
                   authfile.write("   </authorizer>\n")
                   authfile.write("</authorizers>\n")
+                #
+                with open("%s/nifi/conf/hdfs-core-site.xml" % workdir, "w") as corefile:
+                  corefile.write(corecfg)
+                #
+                with open("%s/nifi/conf/hdfs-site.xml" % workdir, "w") as hdfscfile:
+                  hdfscfile.write(hdfscfg)
+                #
               #
             except:
               # TODO use signal or wc for stacktrace output

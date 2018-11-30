@@ -106,7 +106,12 @@ resources:
   server_instance:
     type: OS::Nova::Server
     properties:
-      name: { str_replace: { template: "server-instance-<%node_id%>", params: { <%node_id%>: { get_param: node_id } } } }
+      name: {
+        str_replace: {
+          template: "<%host_pref%>-<%node_id%>",
+          params: { <%host_pref%> : { get_param: host_prefix }, <%node_id%>: { get_param: node_id } }
+        }
+      }
       key_name: { get_param: key_name_user }
       image: { get_param: image_to_use }
       flavor: { get_param: flavor_to_use }
@@ -119,14 +124,17 @@ resources:
           template: |
             #!/usr/bin/python
             import sys, os, os.path, re, traceback
-            from subprocess import call
+            from subprocess import check_call
             try:
+              #
+              with open("/tmp/heat_multi_node.log", "a") as resfile:
+                resfile.write(" Configuring ssh\n")
               #
               host_prefix = "<%host_pref%>"
               node_id = <%node_id%>
               lan_ippre = "<%lan_ippre%>"
               nameservers = "<%ns_list%>"
-              node_type = "<%node_type%>"
+              node_type = re.split("\s+", "<%node_type%>")
               rootpwd = "<%root_pwd%>"
               admin_id = "<%admin_id%>"
               oidc_id = "<%oidc_id%>" if "<%oidc_id%>".lower() <> "undefined" else ""
@@ -144,7 +152,7 @@ resources:
               #
               repo_url = "http://artifacts.pd.infn.it/packages/SMACT/misc"
               #
-              call("hostnamectl set-hostname %s" % servername, shell=True)
+              check_call("hostnamectl set-hostname %s" % servername, shell=True)
               #
               with open("/etc/hosts", "w") as hostsfile:
                 hostsfile.write("127.0.0.1 localhost.pd.infn.it localhost\n")
@@ -182,25 +190,29 @@ resources:
                 sysfile.write("net.ipv6.conf.all.disable_ipv6 = 1\n")
                 sysfile.write("net.ipv6.conf.default.disable_ipv6 = 1\n")
               #
-              call("useradd -d %s %s" % (workdir, bguser), shell=True)
+              check_call("useradd -d %s %s" % (workdir, bguser), shell=True)
               runcmd = "runuser -s /bin/bash -c \"%s\" -- " + bguser
               #
               pkglist = "epel-release yum-priorities vim-enhanced wget java-1.8.0-openjdk"
-              call("yum -y install %s" % pkglist, shell=True)
+              check_call("yum -q -y install %s" % pkglist, shell=True)
               #
               #####################################################################################
               # Kafka setup
               #####################################################################################
               #
               if "kafka" in node_type:
+                #
+                with open("/tmp/heat_multi_node.log", "a") as resfile:
+                  resfile.write(" Installing Kafka\n")
+                #
                 kafkaver = "2.11-1.1.0"
                 #
-                call("wget -O /tmp/kafka_%s.tgz %s/kafka_%s.tgz" % (kafkaver, repo_url, kafkaver), shell=True)
-                call("tar -C %s -zxf /tmp/kafka_%s.tgz" % (workdir, kafkaver), shell=True)
+                check_call("wget -O /tmp/kafka_%s.tgz %s/kafka_%s.tgz" % (kafkaver, repo_url, kafkaver), shell=True)
+                check_call("tar -C %s -zxf /tmp/kafka_%s.tgz" % (workdir, kafkaver), shell=True)
                 os.rename("%s/kafka_%s" % (workdir, kafkaver), "%s/kafka" % workdir)
                 for d_item in [ "/var/lib/kafka", "/var/lib/kafka/kafka-logs", "/var/cache/zookeeper" ]:
                   os.makedirs(d_item, 0770)
-                  call("chown %s.%s %s" % (bguser, bguser, d_item), shell=True)
+                  check_call("chown %s.%s %s" % (bguser, bguser, d_item), shell=True)
                 #
                 with open("%s/kafka/config/server.properties" % workdir, "w") as kconf:
                   kconf.write("broker.id=%d\n" % node_id)
@@ -279,14 +291,16 @@ resources:
               hdfscfg += "</configuration>\n"
               #
               if "spark" in node_type:
-                extrapkgs = "python2-pip python2-py4j python2-root python2-numpy python-pandas"
+                #
+                with open("/tmp/heat_multi_node.log", "a") as resfile:
+                  resfile.write(" Installing Spark\n")
+                #
                 hdver = "2.9.1"
                 spkver = "2.3.2"
                 spk_wport = 6066
                 #
-                call("yum -y install %s" % extrapkgs, shell=True)
-                call("wget -O /tmp/hadoop-%s.tar.gz %s/hadoop-%s.tar.gz" % (hdver, repo_url, hdver), shell=True)
-                call(runcmd % ("tar -C %s -zxf /tmp/hadoop-%s.tar.gz" % (workdir, hdver)), shell=True)
+                check_call("wget -O /tmp/hadoop-%s.tar.gz %s/hadoop-%s.tar.gz" % (hdver, repo_url, hdver), shell=True)
+                check_call(runcmd % ("tar -C %s -zxf /tmp/hadoop-%s.tar.gz" % (workdir, hdver)), shell=True)
                 os.rename("%s/hadoop-%s" % (workdir, hdver), "%s/hadoop" % workdir)
                 #
                 hdhome = workdir + "/hadoop"
@@ -307,7 +321,7 @@ resources:
                 #
                 os.makedirs("%s/datanode" % workdir, 0770)
                 os.makedirs("%s/namenode" % workdir, 0770)
-                call("chown %s.%s %s/datanode %s/namenode" % (bguser, bguser, workdir, workdir), shell=True)
+                check_call("chown %s.%s %s/datanode %s/namenode" % (bguser, bguser, workdir, workdir), shell=True)
                 #
                 with open("%s/etc/hadoop/core-site.xml" % hdhome, "w") as corefile:
                   corefile.write(corecfg)
@@ -335,11 +349,11 @@ resources:
                     slavefile.write("%s-%d.pd.infn.it\n" % (host_prefix, item))
                 #
                 if node_id == sparkIDs[0]:
-                  call(runcmd % ("JAVA_HOME=/usr/lib/jvm/jre-1.8.0-openjdk %s/bin/hdfs namenode -format" % hdhome),
+                  check_call(runcmd % ("JAVA_HOME=/usr/lib/jvm/jre-1.8.0-openjdk %s/bin/hdfs namenode -format" % hdhome),
                        shell=True)
                 #
-                call("wget -O /tmp/spark-%s.tar.gz %s/spark-%s-bin-without-hadoop.tgz" % (spkver, repo_url, spkver), shell=True)
-                call(runcmd % ("tar -C %s -zxf /tmp/spark-%s.tar.gz" % (workdir, spkver)), shell=True)
+                check_call("wget -O /tmp/spark-%s.tar.gz %s/spark-%s-bin-without-hadoop.tgz" % (spkver, repo_url, spkver), shell=True)
+                check_call(runcmd % ("tar -C %s -zxf /tmp/spark-%s.tar.gz" % (workdir, spkver)), shell=True)
                 os.rename("%s/spark-%s-bin-without-hadoop" % (workdir, spkver), "%s/spark" % workdir)
                 #
                 with open("%s/conf/spark-env.sh" % spkhome, "w") as spenvfile:
@@ -356,10 +370,14 @@ resources:
               #####################################################################################
               #
               if "nifi" in node_type:
+                #
+                with open("/tmp/heat_multi_node.log", "a") as resfile:
+                  resfile.write(" Installing NiFi\n")
+                #
                 nifiver = "1.7.1"
                 #
-                call("wget -O /tmp/nifi-%s.tar.gz %s/nifi-%s-bin.tar.gz" % (nifiver, repo_url, nifiver), shell=True)
-                call(runcmd % ("tar -C %s -zxf /tmp/nifi-%s.tar.gz" % (workdir, nifiver)), shell=True)
+                check_call("wget -O /tmp/nifi-%s.tar.gz %s/nifi-%s-bin.tar.gz" % (nifiver, repo_url, nifiver), shell=True)
+                check_call(runcmd % ("tar -C %s -zxf /tmp/nifi-%s.tar.gz" % (workdir, nifiver)), shell=True)
                 os.rename("%s/nifi-%s" % (workdir, nifiver), "%s/nifi" % workdir)
                 #
                 with open("%s/nifi/conf/nifi.properties" % workdir, "w") as nififile:
@@ -559,6 +577,30 @@ resources:
                   hdfscfile.write(hdfscfg)
                 #
               #
+              #####################################################################################
+              # ML setup
+              #####################################################################################
+              #
+              if "ml" in node_type:
+                #
+                with open("/tmp/heat_multi_node.log", "a") as resfile:
+                  resfile.write(" Installing ML packages\n")
+                #
+                extrapkgs = "python-devel python2-pip python2-py4j root root-tmva python2-root cmake hdf5-devel"
+                check_call("yum -q -y install %s" % extrapkgs, shell=True)
+                #
+                check_call([sys.executable, '-m', 'pip', 'install', '-q', '-U', 'pip'])
+                #
+                c_args = [sys.executable, '-m', 'pip', 'install', '-q', '-U',
+                  'scikit-learn', 'seaborn', 'pandas', 'root_numpy', 'keras_tqdm', 'graphviz',
+                  'tables', 'lime', 'root-pandas', 'rootpy', 'scikit-image'
+                ]
+                check_call(c_args)
+                check_call([sys.executable, '-m', 'pip', 'install', '-q', '-I', 'dist-keras'])
+              #
+              with open("/tmp/heat_multi_node.log", "a") as resfile:
+                resfile.write(" Installation completed\n")
+              #
             except:
               # TODO use signal or wc for stacktrace output
               etype, evalue, etraceback = sys.exc_info()
@@ -593,6 +635,8 @@ resources:
 # https://www.linode.com/docs/databases/hadoop/how-to-install-and-set-up-hadoop-cluster/
 # https://pandas.pydata.org/
 # http://www.numpy.org/
+# https://github.com/cerndb/dist-keras
+# https://jaceklaskowski.gitbooks.io/mastering-apache-spark/spark-rdd-partitions.html
 #
 # latest package for spark-root in maven central: "org.diana-hep:spark-root_2.11:0.1.16"
 # python call:

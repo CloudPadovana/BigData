@@ -257,4 +257,16 @@ outputs:
     description: root pwd to access to all VMs in spark cluster
     value: { get_resource: root_pw }
 
+  spark_0_id:
+    description: ID of the server instance
+    value: { get_attr: [ hdfs_node_0, instance_id ] }
+
+  spark_1_id:
+    description: ID of the server instance
+    value: { get_attr: [ hdfs_node_1, instance_id ] }
+
+  spark_2_id:
+    description: ID of the server instance
+    value: { get_attr: [ hdfs_node_2, instance_id ] }
+
 

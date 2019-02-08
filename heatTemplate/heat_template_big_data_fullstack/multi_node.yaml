@@ -639,6 +639,11 @@ resources:
             <%oidc_sec%>:  { get_param: oidc_client_secret }
             <%oidc_idp%>:  { get_param: oidc_idp_url }
 
+outputs:
+
+  instance_id:
+    description: ID of the server instance
+    value: { get_resource: server_instance }
 
 
 #

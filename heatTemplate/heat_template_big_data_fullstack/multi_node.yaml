@@ -290,21 +290,20 @@ resources:
               hdfscfg += "<value>%s.%d:50090</value></property>\n" % (lan_ippre, sparkIDs[0])
               hdfscfg += "</configuration>\n"
               #
-              if "spark" in node_type:
+              spkhome = workdir + "/spark"
+              hdhome = workdir + "/hadoop"
+              #
+              if "hadoop" in node_type:
                 #
                 with open("/tmp/heat_multi_node.log", "a") as resfile:
                   resfile.write(" Installing Spark\n")
                 #
                 hdver = "2.9.1"
-                spkver = "2.3.2"
-                spk_wport = 6066
                 #
                 check_call("wget -O /tmp/hadoop-%s.tar.gz %s/hadoop-%s.tar.gz" % (hdver, repo_url, hdver), shell=True)
                 check_call(runcmd % ("tar -C %s -zxf /tmp/hadoop-%s.tar.gz" % (workdir, hdver)), shell=True)
                 os.rename("%s/hadoop-%s" % (workdir, hdver), "%s/hadoop" % workdir)
                 #
-                hdhome = workdir + "/hadoop"
-                spkhome = workdir + "/spark"
                 with open("/etc/profile.d/hadoop.sh", "w") as proffile:
                   proffile.write("export JAVA_HOME=/usr/lib/jvm/jre-1.8.0-openjdk\n")
                   proffile.write("export JRE_HOME=/usr/lib/jvm/jre-1.8.0-openjdk/jre\n")
@@ -352,13 +351,19 @@ resources:
                   check_call(runcmd % ("JAVA_HOME=/usr/lib/jvm/jre-1.8.0-openjdk %s/bin/hdfs namenode -format" % hdhome),
                        shell=True)
                 #
+              if "spark" in node_type:
+                #
+                spkver = "2.3.2"
+                spk_wport = 6066
+                #
                 check_call("wget -O /tmp/spark-%s.tar.gz %s/spark-%s-bin-without-hadoop.tgz" % (spkver, repo_url, spkver), shell=True)
                 check_call(runcmd % ("tar -C %s -zxf /tmp/spark-%s.tar.gz" % (workdir, spkver)), shell=True)
                 os.rename("%s/spark-%s-bin-without-hadoop" % (workdir, spkver), "%s/spark" % workdir)
                 #
                 with open("%s/conf/spark-env.sh" % spkhome, "w") as spenvfile:
                   spenvfile.write("export SPARK_DIST_CLASSPATH=")
-                  spenvfile.write("$(%s/bin/hadoop --config %s/etc/hadoop classpath)\n" % (hdhome, hdhome))
+                  if "hadoop" in node_type:
+                    spenvfile.write("$(%s/bin/hadoop --config %s/etc/hadoop classpath)\n" % (hdhome, hdhome))
                   spenvfile.write("export SPARK_WORKER_PORT=%d\n" % spk_wport)
                 #
                 with open("%s/conf/slaves" % spkhome, "w") as slavefile:

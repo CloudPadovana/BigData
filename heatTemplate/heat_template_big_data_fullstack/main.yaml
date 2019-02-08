@@ -126,7 +126,7 @@ resources:
       ]
 
   kafka_node_0:
-    type: http://artifacts.pd.infn.it/packages/SMACT/templates/multi_node.yaml
+    type: http://artifacts.pd.infn.it/templates/SMACT/heat/multi_node.yaml
     properties:
       image_to_use: { get_param: image_to_use }
       flavor_to_use: { get_param: flavor_to_use }
@@ -143,7 +143,7 @@ resources:
       kafka_ids: "70 71 72"
 
   kafka_node_1:
-    type: http://artifacts.pd.infn.it/packages/SMACT/templates/multi_node.yaml
+    type: http://artifacts.pd.infn.it/templates/SMACT/heat/multi_node.yaml
     properties:
       image_to_use: { get_param: image_to_use }
       flavor_to_use: { get_param: flavor_to_use }
@@ -160,7 +160,7 @@ resources:
       kafka_ids: "70 71 72"
 
   kafka_node_2:
-    type: http://artifacts.pd.infn.it/packages/SMACT/templates/multi_node.yaml
+    type: http://artifacts.pd.infn.it/templates/SMACT/heat/multi_node.yaml
     properties:
       image_to_use: { get_param: image_to_use }
       flavor_to_use: { get_param: flavor_to_use }
@@ -177,7 +177,7 @@ resources:
       kafka_ids: "70 71 72"
 
   hdfs_node_0:
-    type: http://artifacts.pd.infn.it/packages/SMACT/templates/multi_node.yaml
+    type: http://artifacts.pd.infn.it/templates/SMACT/heat/multi_node.yaml
     properties:
       image_to_use: { get_param: image_to_use }
       flavor_to_use: { get_param: flavor_to_use }
@@ -188,13 +188,13 @@ resources:
       lan_net_ippref: { get_param: lan_ipprefix }
       nameserver_list: { get_param: nameserver_list }
       sec_group_id: { get_resource: secgroup_bigstack_sg }
-      node_type: spark
+      node_type: "spark hadoop"
       node_id: 80
       spark_ids: "80 81 82"
       kafka_ids: "70 71 72"
 
   hdfs_node_1:
-    type: http://artifacts.pd.infn.it/packages/SMACT/templates/multi_node.yaml
+    type: http://artifacts.pd.infn.it/templates/SMACT/heat/multi_node.yaml
     properties:
       image_to_use: { get_param: image_to_use }
       flavor_to_use: { get_param: flavor_to_use }
@@ -205,13 +205,13 @@ resources:
       lan_net_ippref: { get_param: lan_ipprefix }
       nameserver_list: { get_param: nameserver_list }
       sec_group_id: { get_resource: secgroup_bigstack_sg }
-      node_type: spark
+      node_type: "spark hadoop"
       node_id: 81
       spark_ids: "80 81 82"
       kafka_ids: "70 71 72"
 
   hdfs_node_2:
-    type: http://artifacts.pd.infn.it/packages/SMACT/templates/multi_node.yaml
+    type: http://artifacts.pd.infn.it/templates/SMACT/heat/multi_node.yaml
     properties:
       image_to_use: { get_param: image_to_use }
       flavor_to_use: { get_param: flavor_to_use }
@@ -222,13 +222,13 @@ resources:
       lan_net_ippref: { get_param: lan_ipprefix }
       nameserver_list: { get_param: nameserver_list }
       sec_group_id: { get_resource: secgroup_bigstack_sg }
-      node_type: spark
+      node_type: "spark hadoop"
       node_id: 82
       spark_ids: "80 81 82"
       kafka_ids: "70 71 72"
 
   nifi_node:
-    type: http://artifacts.pd.infn.it/packages/SMACT/templates/multi_node.yaml
+    type: http://artifacts.pd.infn.it/templates/SMACT/heat/multi_node.yaml
     properties:
       image_to_use: { get_param: image_to_use }
       flavor_to_use: { get_param: flavor_to_use }

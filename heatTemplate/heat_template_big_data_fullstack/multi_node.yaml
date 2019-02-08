@@ -583,20 +583,32 @@ resources:
               #
               if "ml" in node_type:
                 #
+                bdlver = "0.7.0"
+                #
                 with open("/tmp/heat_multi_node.log", "a") as resfile:
                   resfile.write(" Installing ML packages\n")
                 #
-                extrapkgs = "python-devel python2-pip python2-py4j root root-tmva python2-root cmake hdf5-devel"
+                check_call("wget -O /tmp/bigdl-%s.tar.gz %s/bigdl-%s.tar.gz" % (bdlver, repo_url, bdlver), shell=True)
+                check_call(runcmd % ("tar -C %s -zxf /tmp/bigdl-%s.tar.gz" % (workdir, bdlver)), shell=True)
+                os.rename("%s/bigdl-%s" % (workdir, bdlver), "%s/bigdl" % workdir)
+                #
+                with open("/etc/profile.d/bigdl.sh", "w") as prfile:
+                  prfile.write("export SPARK_HOME=%s/spark\n" % workdir)
+                  prfile.write("export BIGDL_HOME=%s/bigdl\n" % workdir)
+                  prfile.write("export PATH=$PATH:%s/bigdl/bin" % workdir)
+                #
+                extrapkgs = "python-devel python2-pip python2-py4j gcc cmake hdf5-devel"
+                #extrapkgs += "root root-tmva python2-root"
                 check_call("yum -q -y install %s" % extrapkgs, shell=True)
                 #
                 check_call([sys.executable, '-m', 'pip', 'install', '-q', '-U', 'pip'])
                 #
                 c_args = [sys.executable, '-m', 'pip', 'install', '-q', '-U',
-                  'scikit-learn', 'seaborn', 'pandas', 'root_numpy', 'keras_tqdm', 'graphviz',
-                  'tables', 'lime', 'root-pandas', 'rootpy', 'scikit-image'
+                  'scikit-learn', 'scikit-image', 'pandas',
+                  'seaborn', 'tables', 'lime', 'graphviz'
                 ]
+                # 'root-pandas', 'rootpy', 'root_numpy'
                 check_call(c_args)
-                check_call([sys.executable, '-m', 'pip', 'install', '-q', '-I', 'dist-keras'])
               #
               with open("/tmp/heat_multi_node.log", "a") as resfile:
                 resfile.write(" Installation completed\n")
@@ -628,9 +640,13 @@ resources:
 # Post-inst commands:
 #   ssh-keyscan -t rsa1,rsa,dsa -f /etc/ssh/shosts.equiv >> /etc/ssh/ssh_known_hosts
 #   systemctl restart sshd
+#
+#   systemctl start zookeeper
+#   systemctl start kafka
+#
 # (bigdatausr on master) start-dfs.sh
 # (bigdatausr on master) start-master.sh
-# (bigdatausr on slave) start-slave.sh spark://*******.pd.infn.it:7077
+# (bigdatausr on master) start-slaves.sh
 #
 # https://www.linode.com/docs/databases/hadoop/how-to-install-and-set-up-hadoop-cluster/
 # https://pandas.pydata.org/

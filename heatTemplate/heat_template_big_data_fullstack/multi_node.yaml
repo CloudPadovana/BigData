@@ -36,9 +36,13 @@ parameters:
 
   node_id: { type: number, label: "Node ID" }
 
-  kafka_ids: { type: string, label: "Kafka host id" }
+  kafka_ids: { type: string, label: "Kafka host id", default: "undefined" }
 
-  spark_ids: { type: string, label: "Spark host id" }
+  hdfs_ids: { type: string, label: "Hadoop host id", default: "undefined" }
+
+  spark_ids: { type: string, label: "Spark host id", default: "undefined" }
+
+  wn_ids: { type: string, label: "Generic host id", default: "undefined" }
 
   admin_id: { type: string, label: "Administrator ID", default: "undefined" }
 
@@ -148,7 +152,12 @@ resources:
               #
               kafkaIDs = map(lambda x: int(x), re.findall(r'\d+', "<%kafka_ids%>"))
               sparkIDs = map(lambda x: int(x), re.findall(r'\d+', "<%spark_ids%>"))
-              allIDs = set(kafkaIDs) | set(sparkIDs)
+              hdfsIDs = map(lambda x: int(x), re.findall(r'\d+', "<%hdfs_ids%>"))
+              wnIDs = map(lambda x: int(x), re.findall(r'\d+', "<%wn_ids%>"))
+              allIDs = set(kafkaIDs) | set(sparkIDs) | set(hdfsIDs) | set(wnIDs)
+              #
+              if len(hdfsIDs) == 0:
+                hdfsIDs = sparkIDs
               #
               repo_url = "http://artifacts.pd.infn.it/packages/SMACT/misc"
               #
@@ -269,13 +278,13 @@ resources:
                   rcfile.write("export PATH=$PATH:%s/kafka/bin/\n" % workdir) 
               #
               #####################################################################################
-              # Spark setup
+              # Spark and HDFS setup
               #####################################################################################
               #
               corecfg =  "<configuration>\n"
               corecfg += "  <property>\n"
               corecfg += "    <name>fs.defaultFS</name>\n"
-              corecfg += "    <value>hdfs://%s-%d.pd.infn.it:9000/</value>\n" % (host_prefix, sparkIDs[0])
+              corecfg += "    <value>hdfs://%s-%d.pd.infn.it:9000/</value>\n" % (host_prefix, hdfsIDs[0])
               corecfg += "  </property>\n"
               corecfg += "</configuration>\n"
               #
@@ -287,7 +296,7 @@ resources:
               hdfscfg += "  <property><name>dfs.namenode.name.dir</name>"
               hdfscfg += "<value>%s/namenode</value></property>\n" % workdir
               hdfscfg += "  <property> <name>dfs.secondary.http.address</name>"
-              hdfscfg += "<value>%s.%d:50090</value></property>\n" % (lan_ippre, sparkIDs[0])
+              hdfscfg += "<value>%s.%d:50090</value></property>\n" % (lan_ippre, hdfsIDs[0])
               hdfscfg += "</configuration>\n"
               #
               spkhome = workdir + "/spark"
@@ -336,18 +345,18 @@ resources:
                 with open("%s/etc/hadoop/yarn-site.xml" % hdhome, "w") as yarnfile:
                   yarnfile.write("<configuration>\n")
                   yarnfile.write("  <property><name>yarn.resourcemanager.hostname</name>")
-                  yarnfile.write("<value>%s-%d</value></property>\n" % (host_prefix, sparkIDs[0]))
+                  yarnfile.write("<value>%s-%d</value></property>\n" % (host_prefix, hdfsIDs[0]))
                   yarnfile.write("  <property><name>yarn.nodemanager.hostname</name>")
-                  yarnfile.write("<value>%s-%d</value></property>\n" % (host_prefix, sparkIDs[0]))
+                  yarnfile.write("<value>%s-%d</value></property>\n" % (host_prefix, hdfsIDs[0]))
                   yarnfile.write("  <property><name>yarn.nodemanager.aux-services</name>")
                   yarnfile.write("<value>mapreduce_shuffle</value></property>\n")
                   yarnfile.write("</configuration>\n")
                 #
                 with open("%s/etc/hadoop/slaves" % hdhome, "w") as slavefile:
-                  for item in sparkIDs[1:]:
+                  for item in hdfsIDs[1:]:
                     slavefile.write("%s-%d.pd.infn.it\n" % (host_prefix, item))
                 #
-                if node_id == sparkIDs[0]:
+                if node_id == hdfsIDs[0]:
                   check_call(runcmd % ("JAVA_HOME=/usr/lib/jvm/jre-1.8.0-openjdk %s/bin/hdfs namenode -format" % hdhome),
                        shell=True)
                 #
@@ -630,7 +639,9 @@ resources:
             <%lan_ippre%>: { get_param: lan_net_ippref }
             <%node_id%>:   { get_param: node_id }
             <%kafka_ids%>: { get_param: kafka_ids }
+            <%hdfs_ids%>:  { get_param: hdfs_ids }
             <%spark_ids%>: { get_param: spark_ids }
+            <%wn_ids%>:    { get_param: wn_ids }
             <%ns_list%>:   { get_param: nameserver_list }
             <%node_type%>: { get_param: node_type }
             <%root_pwd%>:  { get_param: root_pw }
@@ -645,6 +656,15 @@ outputs:
     description: ID of the server instance
     value: { get_resource: server_instance }
 
+  instance_intport:
+    description: Internal port
+    values: { get_resource: internal_port }
+    condition: internal_access
+
+  instance_extport:
+    description: External port
+    values: { get_resource: public_port }
+    condition: public_access
 
 #
 # Post-inst commands:

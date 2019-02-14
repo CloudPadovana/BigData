@@ -54,8 +54,6 @@ try:
     if len(hdfsIDs) == 0:
         hdfsIDs = sparkIDs
 
-    mount_points = re.findall(r'[a-z0-9]+:[^\s]+:[a-z0-9]+', tplConfig.get("main", "mount_points"))
-
     repo_url = "http://artifacts.pd.infn.it/packages/SMACT/misc"
 
     check_call("hostnamectl set-hostname %s" % servername, shell=True)
@@ -103,12 +101,14 @@ try:
     # Volumes setup
     #####################################################################################
 
-    os.makedirs("/media/volumes", 0770)
+    mp_regex = r'[a-z0-9]+:[^:]+:[^\s]+'
+    mount_points = re.findall(mp_regex, tplConfig.get("main", "mount_points"))
 
     for m_item in mount_points:
         try:
             tmpt = tuple(m_item.split(':'))
-            check_call("mount -t %s %s /media/volumes/%s" % tmpt, shell=True)
+            os.makedirs(tmpt[2], 0777)
+            check_call("mount -t %s %s %s" % tmpt, shell=True)
         except:
             logging.exception("Cannot mount %s\n" % repr(tmpt))
 

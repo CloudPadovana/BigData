@@ -42,6 +42,7 @@ try:
     servername = tplConfig.get("main", "servername").strip()
     if not servername or servername == "undefined":
         servername = "%s-%d.pd.infn.it" % (host_prefix, node_id)
+
     workdir = "/opt/bigdata"
     bguser = "bigdatausr"
 
@@ -101,14 +102,17 @@ try:
     # Volumes setup
     #####################################################################################
 
-    mp_regex = r'[a-z0-9]+:[^:]+:[^\s]+'
+    mp_regex = r'[a-z]+:[a-z0-9]+:[^:]+:[^\s]+'
     mount_points = re.findall(mp_regex, tplConfig.get("main", "mount_points"))
 
     for m_item in mount_points:
         try:
-            tmpt = tuple(m_item.split(':'))
-            os.makedirs(tmpt[2], 0777)
-            check_call("mount -t %s %s %s" % tmpt, shell=True)
+            tmpl = m_item.split(':')
+            if tmpl.pop(0) == 'format':
+                check_call("mkfs -t %s %s" % (tmpl[0], tmpl[1]), shell=True)
+            os.makedirs(tmpl[2])
+            check_call("mount -t %s %s %s" % tuple(tmpl), shell=True)
+            check_call("chmod 777 %s" % tmpl[2], shell=True)
         except:
             logging.exception("Cannot mount %s\n" % repr(tmpt))
 
@@ -212,19 +216,6 @@ try:
         hdfscfg += "<value>%s.%d:50090</value></property>\n" % (lan_ippre, hdfsIDs[0])
         hdfscfg += "</configuration>\n"
 
-    if "hadoop" in node_type:
-
-        logging.info("Installing Spark")
-
-        hdver = "2.9.1"
-
-        if not node_id in hdfsIDs:
-            raise Exception("Node id %d is not a hdfs node" % node_id)
-
-        check_call("wget -O /tmp/hadoop-%s.tar.gz %s/hadoop-%s.tar.gz" % (hdver, repo_url, hdver), shell=True)
-        check_call(runcmd % ("tar -C %s -zxf /tmp/hadoop-%s.tar.gz" % (workdir, hdver)), shell=True)
-        os.rename("%s/hadoop-%s" % (workdir, hdver), "%s/hadoop" % workdir)
-
         with open("/etc/profile.d/hadoop.sh", "w") as proffile:
             proffile.write("export JAVA_HOME=/usr/lib/jvm/jre-1.8.0-openjdk\n")
             proffile.write("export JRE_HOME=/usr/lib/jvm/jre-1.8.0-openjdk/jre\n")
@@ -239,8 +230,23 @@ try:
             proffile.write("export PATH=$PATH:%s/bin:%s/sbin\n" % (hdhome, hdhome))
             proffile.write("export PATH=$PATH:%s/bin:%s/sbin\n" % (spkhome, spkhome))
 
-        os.makedirs("%s/datanode" % workdir, 0770)
-        os.makedirs("%s/namenode" % workdir, 0770)
+    if "hadoop" in node_type:
+
+        logging.info("Installing Spark")
+
+        hdver = "2.9.1"
+
+        if not node_id in hdfsIDs:
+            raise Exception("Node id %d is not a hdfs node" % node_id)
+
+        check_call("wget -O /tmp/hadoop-%s.tar.gz %s/hadoop-%s.tar.gz" % (hdver, repo_url, hdver), shell=True)
+        check_call(runcmd % ("tar -C %s -zxf /tmp/hadoop-%s.tar.gz" % (workdir, hdver)), shell=True)
+        os.rename("%s/hadoop-%s" % (workdir, hdver), "%s/hadoop" % workdir)
+
+        if not os.path.exists("%s/datanode" % workdir):
+            os.makedirs("%s/datanode" % workdir, 0770)
+        if not os.path.exists("%s/namenode" % workdir):
+            os.makedirs("%s/namenode" % workdir, 0770)
         check_call("chown %s.%s %s/datanode %s/namenode" % (bguser, bguser, workdir, workdir), shell=True)
 
         with open("%s/etc/hadoop/core-site.xml" % hdhome, "w") as corefile:

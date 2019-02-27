@@ -125,6 +125,29 @@ resources:
         {"direction": ingress, "remote_ip_prefix": 0.0.0.0/0, "port_range_min": 1024, "port_range_max": 65535, "remote_mode": remote_ip_prefix, "protocol": TCP}
       ]
 
+  kafka_setup:
+    type: OS::Heat::Value
+    properties:
+      type: json
+      value: {
+        "num.network.threads" : "3",
+        "num.io.threads" : "8",
+        "socket.send.buffer.bytes" : "102400",
+        "socket.receive.buffer.bytes" : "102400",
+        "socket.request.max.bytes" : "104857600",
+        "num.partitions" : "1",
+        "num.recovery.threads.per.data.dir" : "1",
+        "offsets.topic.replication.factor" : "1",
+        "transaction.state.log.replication.factor" : "1",
+        "transaction.state.log.min.isr" : "1",
+        "log.retention.hours" : "168",
+        "log.segment.bytes" : "1073741824",
+        "log.retention.check.interval.ms" : "300000",
+        "zookeeper.connect" : "localhost:2181",
+        "zookeeper.connection.timeout.ms" : "6000",
+        "group.initial.rebalance.delay.ms" : "0"
+      }
+
   kafka_node_0:
     type: http://artifacts.pd.infn.it/templates/SMACT/heat/multi_node.yaml
     properties:
@@ -141,6 +164,7 @@ resources:
       node_id: 70
       spark_ids: "80 81 82"
       kafka_ids: "70 71 72"
+      kafka_config: { get_attr [ kafka_setup, value ] }
 
   kafka_node_1:
     type: http://artifacts.pd.infn.it/templates/SMACT/heat/multi_node.yaml
@@ -158,6 +182,7 @@ resources:
       node_id: 71
       spark_ids: "80 81 82"
       kafka_ids: "70 71 72"
+      kafka_config: { get_attr [ kafka_setup, value ] }
 
   kafka_node_2:
     type: http://artifacts.pd.infn.it/templates/SMACT/heat/multi_node.yaml
@@ -175,6 +200,7 @@ resources:
       node_id: 72
       spark_ids: "80 81 82"
       kafka_ids: "70 71 72"
+      kafka_config: { get_attr [ kafka_setup, value ] }
 
   hdfs_node_0:
     type: http://artifacts.pd.infn.it/templates/SMACT/heat/multi_node.yaml
@@ -227,6 +253,131 @@ resources:
       spark_ids: "80 81 82"
       kafka_ids: "70 71 72"
 
+  nifi_setup:
+    type: OS::Heat::Value
+    properties:
+      type: json
+      value: {
+        "administrative.yield.duration" : "30 sec",
+        "bored.yield.duration" : "10 millis",
+        "cluster.firewall.file" : "",
+        "cluster.flow.election.max.candidates" : "",
+        "cluster.flow.election.max.wait.time" : "5 mins",
+        "cluster.is.node" : "false",
+        "cluster.node.address" : "",
+        "cluster.node.connection.timeout" : "5 sec",
+        "cluster.node.event.history.size" : "25",
+        "cluster.node.max.concurrent.requests" : "100",
+        "cluster.node.protocol.max.threads" : "50",
+        "cluster.node.protocol.port" : "",
+        "cluster.node.protocol.threads" : "10",
+        "cluster.node.read.timeout" : "5 sec",
+        "cluster.protocol.heartbeat.interval" : "5 sec",
+        "cluster.protocol.is.secure" : "true",
+        "components.status.repository.buffer.size" : "1440",
+        "components.status.snapshot.frequency" : "1 min",
+        "content.claim.max.appendable.size" : "1 MB",
+        "content.claim.max.flow.files" : "100",
+        "content.repository.always.sync" : "false",
+        "content.repository.archive.enabled" : "true",
+        "content.repository.archive.max.retention.period" : "12 hours",
+        "content.repository.archive.max.usage.percentage" : "50%",
+        "flow.configuration.archive.enabled" : "true",
+        "flow.configuration.archive.max.count" : "",
+        "flow.configuration.archive.max.storage" : "500 MB",
+        "flow.configuration.archive.max.time" : "30 days",
+        "flowcontroller.autoResumeState" : "true",
+        "flowcontroller.graceful.shutdown.period" : "10 sec",
+        "flowfile.repository.always.sync" : "false",
+        "flowfile.repository.checkpoint.interval" : "2 mins",
+        "flowfile.repository.partitions" : "256",
+        "flowservice.writedelay.interval" : "500 ms",
+        "h2.url.append" : ";LOCK_TIMEOUT" : "25000;WRITE_DELAY" : "0;AUTO_SERVER" : "FALSE",
+        "kerberos.krb5.file" : "",
+        "kerberos.service.keytab.location" : "",
+        "kerberos.service.principal" : "",
+        "kerberos.spnego.authentication.expiration" : "12 hours",
+        "kerberos.spnego.keytab.location" : "",
+        "kerberos.spnego.principal" : "",
+        "provenance.repository.always.sync" : "false",
+        "provenance.repository.buffer.size" : "100000",
+        "provenance.repository.compress.on.rollover" : "true",
+        "provenance.repository.concurrent.merge.threads" : "2",
+        "provenance.repository.debug.frequency" : "1_000_000",
+        "provenance.repository.encryption.key" : "",
+        "provenance.repository.encryption.key.id" : "",
+        "provenance.repository.encryption.key.provider.implementation" : "",
+        "provenance.repository.encryption.key.provider.location" : "",
+        "provenance.repository.indexed.attributes" : "",
+        "provenance.repository.indexed.fields" : "EventType, FlowFileUUID, Filename, ProcessorID, Relationship",
+        "provenance.repository.index.shard.size" : "500 MB",
+        "provenance.repository.index.threads" : "2",
+        "provenance.repository.journal.count" : "16",
+        "provenance.repository.max.attribute.length" : "65536",
+        "provenance.repository.max.storage.size" : "1 GB",
+        "provenance.repository.max.storage.time" : "24 hours",
+        "provenance.repository.query.threads" : "2",
+        "provenance.repository.rollover.size" : "100 MB",
+        "provenance.repository.rollover.time" : "30 secs",
+        "provenance.repository.warm.cache.frequency" : "1 hour",
+        "queue.backpressure.count" : "10000",
+        "queue.backpressure.size" : "1 GB",
+        "queue.swap.threshold" : "20000",
+        "remote.contents.cache.expiration" : "30 secs",
+        "remote.input.host" : "",
+        "remote.input.http.enabled" : "true",
+        "remote.input.http.transaction.ttl" : "30 sec",
+        "remote.input.secure" : "true",
+        "remote.input.socket.port" : "",
+        "security.keystoreType" : "JKS",
+        "security.needClientAuth" : "false",
+        "security.ocsp.responder.certificate" : "",
+        "security.ocsp.responder.url" : "",
+        "security.truststore" : "/etc/pki/java/cacerts",
+        "security.truststorePasswd" : "changeit",
+        "security.truststoreType" : "JKS",
+        "security.user.authorizer" : "managed-authorizer",
+        "security.user.knox.audiences" : "",
+        "security.user.knox.cookieName" : "hadoop-jwt",
+        "security.user.knox.publicKey" : "",
+        "security.user.knox.url" : "",
+        "security.user.login.identity.provider" : "",
+        "security.user.oidc.connect.timeout" : "5 secs",
+        "security.user.oidc.preferred.jwsalgorithm" : "",
+        "security.user.oidc.read.timeout" : "5 secs",
+        "sensitive.props.additional.keys" : "",
+        "sensitive.props.algorithm" : "PBEWITHMD5AND256BITAES-CBC-OPENSSL",
+        "sensitive.props.key.protected" : "",
+        "sensitive.props.provider" : "BC",
+        "state.management.embedded.zookeeper.start" : "false",
+        "state.management.provider.cluster" : "zk-provider",
+        "state.management.provider.local" : "local-provider",
+        "swap.in.period" : "5 sec",
+        "swap.in.threads" : "1",
+        "swap.out.period" : "5 sec",
+        "swap.out.threads" : "4",
+        "ui.autorefresh.interval" : "30 sec",
+        "ui.banner.text" : "",
+        "variable.registry.properties" : "",
+        "web.http.host" : "",
+        "web.http.network.interface.default" : "",
+        "web.http.port" : "",
+        "web.https.host" : "0.0.0.0",
+        "web.https.network.interface.default" : "",
+        "web.https.port" : "8443",
+        "web.jetty.threads" : "200",
+        "web.max.header.size" : "16 KB",
+        "web.proxy.context.path" : "",
+        "web.proxy.host" : "",
+        "zookeeper.auth.type" : "",
+        "zookeeper.connect.string" : "",
+        "zookeeper.connect.timeout" : "3 secs",
+        "zookeeper.kerberos.removeHostFromPrincipal" : "",
+        "zookeeper.kerberos.removeRealmFromPrincipal" : "",
+        "zookeeper.root.node" : "/nifi",
+        "zookeeper.session.timeout" : "3 secs"
+      }
+
   nifi_node:
     type: http://artifacts.pd.infn.it/templates/SMACT/heat/multi_node.yaml
     properties:
@@ -250,6 +401,7 @@ resources:
       oidc_client_id: { get_param: oidc_client_id }
       oidc_client_secret: { get_param: oidc_client_secret }
       oidc_idp_url: { get_param: oidc_idp_url }
+      nifi_config: { get_attr [ nifi_setup, value ] }
 
 outputs:
 
